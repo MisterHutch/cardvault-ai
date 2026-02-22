@@ -796,6 +796,68 @@ function deleteCard(id){{
     return render(player, content, scripts, "collection")
 
 
+@app.route("/booklets")
+def booklets_page():
+    booklets = db.list_booklets()
+    conn = get_db()
+
+    if not booklets:
+        content = """
+        <h1 class="page-title">Booklets</h1>
+        <p class="page-sub">Your physical binders, organized by page.</p>
+        <div class="empty-state">
+            <div class="empty-icon">📖</div>
+            <div class="empty-title">No Booklets Yet</div>
+            <p>Scan a binder page and assign it a booklet name to get started.</p>
+            <a href="/" class="btn btn-primary" style="margin-top:16px">📸 Start Scanning</a>
+        </div>"""
+    else:
+        cards_html = '<div class="card-grid">'
+        for b in booklets:
+            row = conn.execute(
+                "SELECT COUNT(*) as cnt, COALESCE(SUM(estimated_value),0) as val FROM cards WHERE booklet_id=?",
+                (b.id,)
+            ).fetchone()
+            count = row["cnt"] if row else 0
+            total = row["val"] if row else 0.0
+
+            # Sample up to 3 card names for preview
+            sample = conn.execute(
+                "SELECT player_name FROM cards WHERE booklet_id=? LIMIT 3", (b.id,)
+            ).fetchall()
+            preview = ", ".join(r["player_name"] for r in sample if r["player_name"] and r["player_name"] != "Unknown")
+            if not preview:
+                preview = "No cards identified yet"
+
+            cards_html += f"""
+            <a href="/collection?booklet={b.id}" class="card-item">
+                <div class="card-thumb" style="font-size:40px">📖</div>
+                <div class="card-info">
+                    <div class="card-player-name">{b.name or 'Unnamed Booklet'}</div>
+                    <div class="card-set-info" style="margin-bottom:8px">{b.sport.title() if b.sport else 'Mixed'} · {count} card{'s' if count != 1 else ''}</div>
+                    <div style="font-size:12px;color:var(--light-purple);margin-bottom:12px">{preview}</div>
+                    <div class="card-bottom">
+                        <div class="card-value">${total:,.2f}</div>
+                        <span style="font-size:11px;color:var(--light-purple);font-weight:700">{b.total_pages or '?'} pages</span>
+                    </div>
+                </div>
+            </a>"""
+        cards_html += "</div>"
+
+        total_cards = sum(1 for _ in conn.execute("SELECT id FROM cards WHERE booklet_id IS NOT NULL").fetchall())
+        content = f"""
+        <h1 class="page-title">Booklets</h1>
+        <p class="page-sub">Your physical binders, organized by page.</p>
+        <div class="stats-bar">
+            <div class="stat-card"><div class="stat-number">{len(booklets)}</div><div class="stat-label">Booklets</div></div>
+            <div class="stat-card"><div class="stat-number">{total_cards}</div><div class="stat-label">Cards Tracked</div></div>
+        </div>
+        {cards_html}"""
+
+    conn.close()
+    return render("Booklets", content, active="booklets")
+
+
 @app.route("/settings")
 def settings_page():
     ebay_status = "Connected (sandbox)" if _cid else "Not configured"
