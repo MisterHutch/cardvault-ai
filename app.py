@@ -188,43 +188,39 @@ BASE_HTML = """<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>CardVault AI — %(title)s</title>
-
-<!-- PWA -->
 <link rel="manifest" href="/static/manifest.json">
-<meta name="theme-color" content="#7B2FFF">
+<meta name="theme-color" content="#070B14">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="CardVault">
 <link rel="apple-touch-icon" href="/static/icons/icon-180.png">
-
-<!-- Fonts & CSS -->
-<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Rubik:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<div class="geo-bg">
-    <div class="geo-shape circle"></div>
-    <div class="geo-shape circle"></div>
-    <div class="geo-shape tri"></div>
+<div class="app-shell">
+  <header class="app-header">
+    <div class="app-logo">🃏</div>
+    <div class="app-brand">Card<span>Vault</span> AI</div>
+  </header>
+  <nav class="app-nav">
+    <a href="/" class="nav-item %(nav_scan)s">
+      <span class="nav-icon">🔍</span>Scanner
+    </a>
+    <a href="/collection" class="nav-item %(nav_coll)s">
+      <span class="nav-icon">📦</span>Collection
+    </a>
+    <a href="/booklets" class="nav-item %(nav_book)s">
+      <span class="nav-icon">📖</span>Booklets
+    </a>
+    <a href="/settings" class="nav-item %(nav_set)s">
+      <span class="nav-icon">⚙️</span>Settings
+    </a>
+  </nav>
+  <main class="page-content">%(content)s</main>
+  <div id="toast"></div>
+  <footer class="app-footer">&copy; 2026 HutchGroup LLC &middot; CardVault AI</footer>
 </div>
-<nav class="app-nav">
-    <div class="nav-inner">
-        <a href="/" class="logo">
-            <div class="logo-icon">CV</div>
-            <div class="logo-text">Card<span>Vault</span> AI</div>
-        </a>
-        <ul class="nav-links">
-            <li><a href="/" class="%(nav_scan)s">Scanner</a></li>
-            <li><a href="/collection" class="%(nav_coll)s">Collection</a></li>
-            <li><a href="/booklets" class="%(nav_book)s">Booklets</a></li>
-            <li><a href="/settings" class="%(nav_set)s">Settings</a></li>
-        </ul>
-    </div>
-</nav>
-<main class="app-content">%(content)s</main>
-<div id="toast" class="toast"></div>
-<footer class="app-footer">&copy; 2026 HutchGroup LLC &middot; CardVault AI v4.0</footer>
 <script src="/static/app.js"></script>
 %(scripts)s
 </body>
@@ -252,9 +248,9 @@ def scanner_page():
     <p class="page-sub">Scan a full binder page (9 cards) or a single card — AI identifies everything automatically.</p>
 
     <!-- Mode Selector -->
-    <div style="display:flex;gap:12px;margin-bottom:24px">
-        <button class="btn btn-primary" id="modeBinder" onclick="setMode('binder')">📖 Binder Page (9 cards)</button>
-        <button class="btn btn-ghost" id="modeSingle" onclick="setMode('single')">🃏 Single Card</button>
+    <div class="mode-pills">
+        <button class="mode-pill active" id="modeBinder" onclick="setMode('binder')">📖 Binder Page (9 cards)</button>
+        <button class="mode-pill" id="modeSingle" onclick="setMode('single')">🃏 Single Card</button>
     </div>
 
     <!-- Upload Zone with explicit buttons — most reliable on iOS Safari -->
@@ -436,8 +432,8 @@ var batchCurrent = 0;
 function setMode(mode) {
     currentMode = mode;
     var isBinder = mode === 'binder';
-    document.getElementById('modeBinder').className = isBinder ? 'btn btn-primary' : 'btn btn-ghost';
-    document.getElementById('modeSingle').className = isBinder ? 'btn btn-ghost' : 'btn btn-primary';
+    document.getElementById('modeBinder').className = isBinder ? 'mode-pill active' : 'mode-pill';
+    document.getElementById('modeSingle').className = isBinder ? 'mode-pill' : 'mode-pill active';
     document.getElementById('uploadIcon').textContent = isBinder ? '📖' : '🃏';
     document.getElementById('uploadTitle').textContent = isBinder ? 'Scan Binder Page' : 'Scan a Card';
     document.getElementById('uploadSub').textContent = isBinder ? 'Take a photo or pick from library' : 'Take a photo or pick from library';
