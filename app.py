@@ -732,8 +732,14 @@ function processBatchPage() {
         }).then(function(r){return r.json()})
         .then(function(idRes) {
             var identified = idRes.results || cards;
+            // Log any errors to debug panel
+            if (idRes.errors && idRes.errors.length) {
+                dbg('identify errors: ' + idRes.errors.slice(0,2).join(' | '));
+            }
             document.getElementById('bpage-icon-'+i).textContent = '✅';
-            var names = identified.slice(0,3).map(function(c){return c.player_name||'?';}).filter(Boolean).join(', ');
+            var names = identified.slice(0,3).map(function(c){
+                return (c.player_name && c.player_name !== 'Unknown') ? c.player_name : (c.error ? '⚠️'+c.error.substr(0,30) : '?');
+            }).filter(Boolean).join(', ');
             document.getElementById('bpage-count-'+i).textContent = identified.length + ' cards — ' + names + (identified.length > 3 ? '…' : '');
             batchResults.push({pageIndex: i, cards: identified});
             batchCurrent++;
@@ -1212,17 +1218,25 @@ def api_identify_batch():
     results = []
     for card_info in cards_in:
         filepath = PROCESSED_DIR / card_info["filename"]
-        if filepath.exists():
-            try:
-                ident = identifier.identify_card(str(filepath))
-                result = ident.to_dict()
-                result["filename"] = card_info["filename"]
-                result["row"] = card_info.get("row", 0)
-                result["col"] = card_info.get("col", 0)
-                results.append(result)
-            except Exception as e:
-                results.append({"error": str(e), "filename": card_info["filename"]})
-    return jsonify({"results": results})
+        if not filepath.exists():
+            results.append({
+                "player_name": "Unknown", "error": f"File not found: {card_info['filename']}",
+                "filename": card_info["filename"], "row": card_info.get("row",0), "col": card_info.get("col",0)
+            })
+            continue
+        try:
+            ident = identifier.identify_card(str(filepath))
+            result = ident.to_dict()
+            result["filename"] = card_info["filename"]
+            result["row"] = card_info.get("row", 0)
+            result["col"] = card_info.get("col", 0)
+            results.append(result)
+        except Exception as e:
+            results.append({
+                "player_name": "Unknown", "error": str(e),
+                "filename": card_info["filename"], "row": card_info.get("row",0), "col": card_info.get("col",0)
+            })
+    return jsonify({"results": results, "errors": [r["error"] for r in results if "error" in r]})
 
 
 @app.route("/api/save-batch", methods=["POST"])

@@ -287,19 +287,41 @@ Now analyze the card image:"""
     
     def _parse_response(self, raw_text: str) -> Dict[str, Any]:
         """Parse JSON from response, handling various formats."""
-        # Try to extract JSON from markdown code block
-        json_match = re.search(r'```(?:json)?\s*(.*?)\s*```', raw_text, re.DOTALL)
-        if json_match:
-            json_str = json_match.group(1)
-        else:
-            # Try to find JSON object directly
-            json_match = re.search(r'\{[^{}]*\}', raw_text, re.DOTALL)
-            if json_match:
-                json_str = json_match.group(0)
-            else:
-                json_str = raw_text.strip()
-        
-        return json.loads(json_str)
+        if not raw_text or not raw_text.strip():
+            raise ValueError("Empty response from API")
+
+        # 1. Try ```json ... ``` code block
+        m = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', raw_text)
+        if m:
+            try:
+                return json.loads(m.group(1))
+            except json.JSONDecodeError:
+                pass
+
+        # 2. Try to find the outermost { ... } (handles nested JSON)
+        start = raw_text.find('{')
+        end = raw_text.rfind('}')
+        if start != -1 and end != -1 and end > start:
+            try:
+                return json.loads(raw_text[start:end+1])
+            except json.JSONDecodeError:
+                pass
+
+        # 3. Try the whole text
+        try:
+            return json.loads(raw_text.strip())
+        except json.JSONDecodeError:
+            pass
+
+        # 4. Claude returned plain text — extract what we can
+        result = {}
+        lower = raw_text.lower()
+        # Try to pull player name from first line
+        first_line = raw_text.strip().split('\n')[0]
+        if len(first_line) < 60 and not first_line.startswith('{'):
+            result['identification_notes'] = raw_text[:200]
+        result['confidence'] = 0.3
+        raise json.JSONDecodeError(f"Could not parse JSON from: {raw_text[:100]}", raw_text, 0)
     
     def identify_card(self, image_path: str) -> CardIdentification:
         """
