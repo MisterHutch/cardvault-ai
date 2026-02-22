@@ -246,6 +246,10 @@ body {
 /* ── Footer ───────────────────────────────────────────────── */
 .app-footer { text-align: center; padding: 32px; color: var(--light-purple); font-size: 13px; border-top: 2px solid rgba(123, 47, 255, .15); margin-top: 64px; }
 
+/* ── iPhone safe areas (notch / home bar) ─────────────────── */
+.app-nav  { padding-left: max(24px, env(safe-area-inset-left)); padding-right: max(24px, env(safe-area-inset-right)); }
+.app-content { padding-bottom: max(32px, env(safe-area-inset-bottom)); }
+
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 768px) {
   .scan-result      { grid-template-columns: 1fr; }

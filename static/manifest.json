@@ -1,0 +1,24 @@
+{
+  "name": "CardVault AI",
+  "short_name": "CardVault",
+  "description": "AI-powered sports card scanner and valuation",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0D0628",
+  "theme_color": "#7B2FFF",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
