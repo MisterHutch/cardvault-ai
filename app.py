@@ -169,142 +169,7 @@ def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # ============================================================================
-# STREETWEAR V2 CSS
-# ============================================================================
-
-CSS = """
-:root{--hot-pink:#FF2D78;--electric-purple:#7B2FFF;--slime-green:#39FF14;--radical-yellow:#FFE818;--turbo-orange:#FF6B2B;--sky-blue:#00BFFF;--deep-blue:#1A0A4A;--midnight:#0D0628;--white:#FFF;--off-white:#F5F0FF;--light-purple:#E8DEFF;--border-thick:4px;--shadow-block:6px 6px 0px;--shadow-big:8px 8px 0px;--radius-chunky:20px;--radius-block:16px}
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Rubik',sans-serif;background:var(--midnight);color:var(--off-white);-webkit-font-smoothing:antialiased;min-height:100vh}
-.geo-bg{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
-.geo-shape{position:absolute;opacity:.04;animation:gfloat 20s ease-in-out infinite}
-.geo-shape.circle{border-radius:50%;border:8px solid var(--hot-pink)}
-.geo-shape.tri{width:0;height:0;border-left:60px solid transparent;border-right:60px solid transparent;border-bottom:100px solid var(--slime-green)}
-.geo-shape:nth-child(1){top:8%;left:5%;width:120px;height:120px}
-.geo-shape:nth-child(2){top:50%;right:8%;width:80px;height:80px;border-color:var(--radical-yellow);animation-delay:-5s}
-.geo-shape:nth-child(3){bottom:15%;left:12%;animation-delay:-10s}
-@keyframes gfloat{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-20px) rotate(5deg)}}
-
-.app-nav{position:sticky;top:0;z-index:100;background:rgba(13,6,40,.95);backdrop-filter:blur(20px);border-bottom:3px solid var(--electric-purple);padding:0 24px}
-.nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:64px}
-.logo{display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit}
-.logo-icon{width:40px;height:40px;background:linear-gradient(135deg,var(--hot-pink),var(--electric-purple));border-radius:10px;border:3px solid var(--white);display:grid;place-items:center;font-family:'Lilita One',cursive;font-size:16px;box-shadow:3px 3px 0 var(--electric-purple)}
-.logo-text{font-family:'Lilita One',cursive;font-size:20px}
-.logo-text span{color:var(--hot-pink)}
-.nav-links{display:flex;gap:8px;list-style:none}
-.nav-links a{text-decoration:none;color:var(--light-purple);font-weight:600;font-size:14px;padding:8px 16px;border-radius:10px;transition:all .15s}
-.nav-links a:hover,.nav-links a.active{color:var(--white);background:rgba(123,47,255,.2)}
-.nav-links a.active{background:var(--electric-purple);box-shadow:3px 3px 0 var(--deep-blue)}
-
-.app-content{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:32px 24px}
-.page-title{font-family:'Lilita One',cursive;font-size:32px;margin-bottom:8px}
-.page-sub{color:var(--light-purple);font-size:15px;font-weight:500;margin-bottom:32px}
-
-.panel{background:var(--deep-blue);border:var(--border-thick) solid var(--electric-purple);border-radius:var(--radius-chunky);padding:28px;box-shadow:var(--shadow-block) rgba(123,47,255,.3);transition:all .15s;margin-bottom:20px}
-.panel:hover{transform:translate(-2px,-2px);box-shadow:var(--shadow-big) rgba(123,47,255,.4)}
-.panel-title{font-family:'Lilita One',cursive;font-size:20px;margin-bottom:16px;display:flex;align-items:center;gap:10px}
-
-.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:14px;font-family:'Lilita One',cursive;font-size:16px;cursor:pointer;border:3px solid;transition:all .15s;text-decoration:none;color:var(--white)}
-.btn-primary{background:var(--hot-pink);border-color:var(--deep-blue);box-shadow:var(--shadow-block) var(--deep-blue)}
-.btn-primary:hover{transform:translate(3px,3px);box-shadow:0 0 0 var(--deep-blue)}
-.btn-secondary{background:var(--electric-purple);border-color:var(--deep-blue);box-shadow:var(--shadow-block) var(--deep-blue)}
-.btn-secondary:hover{transform:translate(3px,3px);box-shadow:0 0 0 var(--deep-blue)}
-.btn-ghost{background:transparent;color:var(--light-purple);border-color:rgba(123,47,255,.3)}
-.btn-ghost:hover{background:rgba(123,47,255,.1);color:var(--white)}
-.btn-sm{padding:8px 16px;font-size:13px;border-radius:10px}
-.btn-danger{background:var(--hot-pink);border-color:var(--deep-blue);box-shadow:var(--shadow-block) var(--deep-blue)}
-
-.upload-zone{border:4px dashed var(--electric-purple);border-radius:var(--radius-chunky);padding:48px;text-align:center;cursor:pointer;transition:all .2s;background:rgba(123,47,255,.05)}
-.upload-zone:hover,.upload-zone.dragover{background:rgba(123,47,255,.15);border-color:var(--hot-pink);transform:scale(1.01)}
-.upload-icon{font-size:48px;margin-bottom:16px}
-.upload-title{font-family:'Lilita One',cursive;font-size:22px;margin-bottom:8px}
-.upload-sub{color:var(--light-purple);font-size:14px}
-
-.scan-result{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px}
-.scan-image-panel{position:relative;overflow:hidden;border-radius:var(--radius-block);border:3px solid var(--electric-purple)}
-.scan-image-panel img{width:100%;display:block}
-
-.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
-.card-item{background:var(--deep-blue);border:3px solid rgba(123,47,255,.3);border-radius:var(--radius-block);overflow:hidden;transition:all .15s;cursor:pointer;text-decoration:none;color:inherit;display:block}
-.card-item:hover{border-color:var(--hot-pink);transform:translateY(-4px);box-shadow:var(--shadow-big) rgba(255,45,120,.2)}
-.card-detect-cell{background:var(--deep-blue);border:2px solid rgba(123,47,255,.4);border-radius:12px;overflow:hidden;transition:border-color .2s}
-.card-detect-cell:hover{border-color:var(--hot-pink)}
-.card-thumb{height:160px;background:linear-gradient(135deg,var(--deep-blue),var(--midnight));display:grid;place-items:center;font-size:48px;opacity:.5}
-.card-info{padding:16px}
-.card-player-name{font-family:'Lilita One',cursive;font-size:18px;margin-bottom:4px}
-.card-set-info{font-size:12px;color:var(--light-purple);font-weight:600;margin-bottom:12px}
-.card-bottom{display:flex;justify-content:space-between;align-items:center}
-.card-value{font-family:'Space Mono',monospace;font-size:18px;font-weight:700;color:var(--slime-green)}
-.card-confidence{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:4px 10px;border-radius:6px}
-.conf-high{background:var(--slime-green);color:var(--deep-blue)}
-.conf-med{background:var(--radical-yellow);color:var(--deep-blue)}
-.conf-low{background:var(--turbo-orange);color:var(--white)}
-
-.tag{display:inline-block;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;border:2px solid;margin-right:4px;margin-bottom:4px}
-.tag-rc{background:var(--sky-blue);color:var(--deep-blue);border-color:var(--electric-purple)}
-.tag-auto{background:var(--radical-yellow);color:var(--deep-blue);border-color:var(--turbo-orange)}
-.tag-parallel{background:var(--electric-purple);color:var(--white);border-color:var(--hot-pink)}
-.tag-numbered{background:var(--slime-green);color:var(--deep-blue);border-color:var(--deep-blue)}
-.tag-graded{background:var(--hot-pink);color:var(--white);border-color:var(--deep-blue)}
-
-.confidence-bar{display:flex;align-items:center;gap:12px;margin-top:12px}
-.confidence-track{flex:1;height:10px;background:rgba(123,47,255,.2);border-radius:5px;overflow:hidden}
-.confidence-fill{height:100%;border-radius:5px;transition:width .5s ease}
-.confidence-val{font-family:'Space Mono',monospace;font-weight:700;font-size:14px}
-
-.source-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-.source-pill{padding:6px 12px;background:var(--midnight);border:2px solid rgba(123,47,255,.3);border-radius:8px;font-size:12px;font-weight:700}
-.source-pill .val{color:var(--slime-green);font-family:'Space Mono',monospace}
-
-.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px}
-.stat-card{background:var(--deep-blue);border:3px solid rgba(123,47,255,.3);border-radius:var(--radius-block);padding:20px;text-align:center}
-.stat-number{font-family:'Lilita One',cursive;font-size:28px;color:var(--slime-green)}
-.stat-label{font-size:12px;color:var(--light-purple);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-top:4px}
-
-.form-group{margin-bottom:16px}
-.form-label{display:block;font-weight:700;font-size:13px;margin-bottom:6px;color:var(--light-purple);text-transform:uppercase;letter-spacing:1px}
-.form-input,.form-select{width:100%;padding:12px 16px;background:var(--midnight);border:3px solid rgba(123,47,255,.3);border-radius:12px;color:var(--white);font-family:'Rubik',sans-serif;font-size:15px;transition:border-color .2s}
-.form-input:focus,.form-select:focus{outline:none;border-color:var(--electric-purple);box-shadow:0 0 0 3px rgba(123,47,255,.2)}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
-.form-check{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;cursor:pointer;color:var(--light-purple)}
-.form-check input{width:18px;height:18px;accent-color:var(--hot-pink)}
-
-.mult-table{width:100%;border-collapse:collapse;margin-top:12px}
-.mult-table th,.mult-table td{padding:10px 14px;text-align:left;border-bottom:2px solid rgba(123,47,255,.15)}
-.mult-table th{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--light-purple)}
-.mult-val{font-family:'Space Mono',monospace;font-weight:700;color:var(--radical-yellow)}
-
-.empty-state{text-align:center;padding:64px 24px;color:var(--light-purple)}
-.empty-icon{font-size:64px;margin-bottom:16px;opacity:.5}
-.empty-title{font-family:'Lilita One',cursive;font-size:24px;color:var(--white);margin-bottom:8px}
-
-.detail-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:16px}
-.detail-value{font-family:'Space Mono',monospace;font-size:36px;font-weight:700;color:var(--slime-green)}
-.detail-range{font-size:13px;color:var(--light-purple)}
-
-.toast{position:fixed;bottom:24px;right:24px;padding:16px 24px;border-radius:14px;font-weight:700;font-size:14px;box-shadow:var(--shadow-big) rgba(0,0,0,.3);z-index:999;animation:slideIn .3s ease;display:none}
-.toast-success{background:var(--slime-green);color:var(--deep-blue)}
-.toast-error{background:#FF4444;color:var(--white)}
-@keyframes slideIn{from{transform:translateY(100px);opacity:0}to{transform:translateY(0);opacity:1}}
-
-.loading{display:inline-block;width:24px;height:24px;border:3px solid var(--electric-purple);border-top-color:var(--hot-pink);border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-.app-footer{text-align:center;padding:32px;color:var(--light-purple);font-size:13px;border-top:2px solid rgba(123,47,255,.15);margin-top:64px}
-
-@media(max-width:768px){
-    .scan-result{grid-template-columns:1fr}
-    .stats-bar{grid-template-columns:1fr 1fr}
-    .form-row,.form-row-3{grid-template-columns:1fr}
-    .nav-links{display:none}
-    .card-grid{grid-template-columns:1fr}
-    .detail-header{flex-direction:column}
-}
-"""
-
-# ============================================================================
-# BASE TEMPLATE
+# BASE TEMPLATE  (CSS & shared JS live in static/ — edit those files freely)
 # ============================================================================
 
 BASE_HTML = """<!DOCTYPE html>
@@ -314,7 +179,7 @@ BASE_HTML = """<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CardVault AI — %(title)s</title>
 <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Rubik:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<style>""" + CSS + """</style>
+<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <div class="geo-bg">
@@ -331,16 +196,15 @@ BASE_HTML = """<!DOCTYPE html>
         <ul class="nav-links">
             <li><a href="/" class="%(nav_scan)s">Scanner</a></li>
             <li><a href="/collection" class="%(nav_coll)s">Collection</a></li>
+            <li><a href="/booklets" class="%(nav_book)s">Booklets</a></li>
             <li><a href="/settings" class="%(nav_set)s">Settings</a></li>
         </ul>
     </div>
 </nav>
 <main class="app-content">%(content)s</main>
 <div id="toast" class="toast"></div>
-<footer class="app-footer">&copy; 2026 HutchGroup LLC &middot; CardVault AI v3.0</footer>
-<script>
-function showToast(msg,type){var t=document.getElementById('toast');t.textContent=msg;t.className='toast toast-'+(type||'success');t.style.display='block';setTimeout(function(){t.style.display='none'},3000)}
-</script>
+<footer class="app-footer">&copy; 2026 HutchGroup LLC &middot; CardVault AI v4.0</footer>
+<script src="/static/app.js"></script>
 %(scripts)s
 </body>
 </html>"""
@@ -350,9 +214,10 @@ def render(title, content, scripts="", active="scan"):
     html = html.replace("%(title)s", title)
     html = html.replace("%(content)s", content)
     html = html.replace("%(scripts)s", scripts)
-    html = html.replace("%(nav_scan)s", "active" if active == "scan" else "")
-    html = html.replace("%(nav_coll)s", "active" if active == "collection" else "")
-    html = html.replace("%(nav_set)s", "active" if active == "settings" else "")
+    html = html.replace("%(nav_scan)s",  "active" if active == "scan"       else "")
+    html = html.replace("%(nav_coll)s",  "active" if active == "collection" else "")
+    html = html.replace("%(nav_book)s",  "active" if active == "booklets"   else "")
+    html = html.replace("%(nav_set)s",   "active" if active == "settings"   else "")
     return html
 
 # ============================================================================
