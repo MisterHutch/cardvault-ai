@@ -613,7 +613,7 @@ function renderCardGrid(cards) {
         var pos = 'Row ' + (card.row+1) + ', Col ' + (card.col+1);
         var conf = Math.round((card.confidence||0)*100);
         grid.innerHTML += '<div class="card-detect-cell" id="cell-'+i+'" data-idx="'+i+'">' +
-            '<img src="/processed/' + card.filename + '" style="width:100%;border-radius:8px;display:block" onerror="this.src=\'\';">' +
+            '<img src="/processed/' + card.filename + '" style="width:100%;border-radius:8px;display:block">' +
             '<div style="padding:8px">' +
             '<div style="font-size:11px;color:var(--light-purple);font-weight:700;text-transform:uppercase">' + pos + ' · ' + conf + '% conf</div>' +
             '<div id="card-label-'+i+'" style="font-size:12px;color:var(--off-white);margin-top:4px">Pending AI ID…</div>' +
