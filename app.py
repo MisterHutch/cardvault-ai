@@ -10,6 +10,7 @@ Author: HutchGroup LLC
 import os
 import json
 import uuid
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
@@ -84,6 +85,12 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 # Database (database_v2 — preserves existing collection)
 DB_PATH = os.environ.get("DB_PATH", "card_collection.db")
 db = CardDatabase(DB_PATH)
+
+def get_db():
+    """Raw SQLite connection (row_factory=Row so columns are accessible by name)."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 estimator = CardValueEstimator()
 
@@ -660,26 +667,29 @@ def collection_page():
     else:
         cards_html = '<div class="card-grid">'
         for c in cards:
-            conf_class = "conf-high" if (c["confidence_score"] or 0) >= 75 else "conf-med" if (c["confidence_score"] or 0) >= 50 else "conf-low"
+            conf = c["confidence_score"] or c["confidence"] or 0
+            conf_class = "conf-high" if conf >= 75 else "conf-med" if conf >= 50 else "conf-low"
             val = c["estimated_value"] or 0
             tags = ""
-            if c["rookie"]:
+            if c["is_rookie"]:
                 tags += '<span class="tag tag-rc">RC</span>'
-            if c["autograph"]:
+            if c["is_auto"]:
                 tags += '<span class="tag tag-auto">Auto</span>'
-            if c["parallel"]:
+            if c["parallel"] and c["parallel"] != "Base":
                 tags += f'<span class="tag tag-parallel">{c["parallel"]}</span>'
+            if c["is_numbered"] and c["numbering"]:
+                tags += f'<span class="tag tag-numbered">{c["numbering"]}</span>'
 
             cards_html += f"""
             <a href="/card/{c['id']}" class="card-item">
                 <div class="card-thumb">🃏</div>
                 <div class="card-info">
-                    <div class="card-player-name">{c['player']}</div>
+                    <div class="card-player-name">{c['player_name']}</div>
                     <div class="card-set-info">{c['year']} {c['set_name']} #{c['card_number']}</div>
                     <div style="margin-bottom:8px">{tags}</div>
                     <div class="card-bottom">
                         <div class="card-value">${val:,.2f}</div>
-                        <span class="card-confidence {conf_class}">{c['confidence'] or 'N/A'}</span>
+                        <span class="card-confidence {conf_class}">{conf:.0f}%</span>
                     </div>
                 </div>
             </a>"""
@@ -704,20 +714,24 @@ def card_detail_page(card_id):
 
     c = dict(c)  # Convert Row to dict for .get() access
     val = c.get("estimated_value") or 0
-    conf = c["confidence_score"] or 0
+    conf = c.get("confidence_score") or c.get("confidence") or 0
     cc = "var(--slime-green)" if conf >= 75 else "var(--radical-yellow)" if conf >= 50 else "var(--turbo-orange)"
 
     tags = ""
-    if c["rookie"]:
+    if c.get("is_rookie"):
         tags += '<span class="tag tag-rc">RC</span>'
-    if c["autograph"]:
+    if c.get("is_auto"):
         tags += '<span class="tag tag-auto">Auto</span>'
-    if c["parallel"]:
+    if c.get("is_patch"):
+        tags += '<span class="tag tag-auto">Patch</span>'
+    if c.get("parallel") and c.get("parallel") != "Base":
         tags += f'<span class="tag tag-parallel">{c["parallel"]}</span>'
-    if c["serial_number"]:
-        tags += f'<span class="tag tag-numbered">{c["serial_number"]}</span>'
-    if c["graded"]:
-        tags += f'<span class="tag tag-graded">{c["grading_company"]} {c["grade_value"]}</span>'
+    if c.get("is_numbered") and c.get("numbering"):
+        tags += f'<span class="tag tag-numbered">{c["numbering"]}</span>'
+    if c.get("is_ssp"):
+        tags += f'<span class="tag tag-graded">SSP</span>'
+
+    player = c.get("player_name") or "Unknown"
 
     content = f"""
     <a href="/collection" class="btn btn-ghost btn-sm" style="margin-bottom:20px">← Back to Collection</a>
@@ -725,13 +739,14 @@ def card_detail_page(card_id):
     <div class="panel">
         <div class="detail-header">
             <div>
-                <div style="font-family:'Lilita One',cursive;font-size:32px">{c['player']}</div>
-                <div style="color:var(--light-purple);font-size:14px;font-weight:600">{c['year']} {c['set_name']} #{c['card_number']}</div>
+                <div style="font-family:'Lilita One',cursive;font-size:32px">{player}</div>
+                <div style="color:var(--light-purple);font-size:14px;font-weight:600">{c.get('year','')} {c.get('set_name','')} #{c.get('card_number','')}</div>
+                <div style="margin-top:4px;color:var(--light-purple);font-size:13px">{c.get('team','')} · {c.get('sport','').title()}</div>
                 <div style="margin-top:12px">{tags}</div>
             </div>
             <div style="text-align:right">
                 <div class="detail-value">${val:,.2f}</div>
-                <div class="detail-range">${c['value_range_low'] or 0:,.2f} – ${c['value_range_high'] or 0:,.2f}</div>
+                <div class="detail-range">${c.get('value_range_low') or 0:,.2f} – ${c.get('value_range_high') or 0:,.2f}</div>
             </div>
         </div>
 
@@ -741,11 +756,12 @@ def card_detail_page(card_id):
             <span class="confidence-val" style="color:{cc}">{conf:.0f}%</span>
         </div>
 
-        {f'<div style="margin-top:16px;padding:12px 16px;background:rgba(255,232,24,.1);border:2px solid var(--radical-yellow);border-radius:10px;font-size:14px"><strong>Grading:</strong> {c["grading_rec"]}</div>' if c.get("grading_rec") else ""}
-        {f'<div style="margin-top:12px;padding:12px 16px;background:rgba(57,255,20,.08);border:2px solid rgba(57,255,20,.3);border-radius:10px;font-size:14px"><strong>Trend:</strong> {c["market_trend"]}</div>' if c.get("market_trend") else ""}
+        {f'<div style="margin-top:16px;padding:12px 16px;background:rgba(255,232,24,.1);border:2px solid var(--radical-yellow);border-radius:10px;font-size:14px"><strong>Grading Rec:</strong> {c["grading_rec"]}</div>' if c.get("grading_rec") else ""}
+        {f'<div style="margin-top:12px;padding:12px 16px;background:rgba(57,255,20,.08);border:2px solid rgba(57,255,20,.3);border-radius:10px;font-size:14px"><strong>AI Notes:</strong> {c["identification_notes"]}</div>' if c.get("identification_notes") else ""}
+        {f'<div style="margin-top:12px;padding:12px 16px;background:rgba(0,191,255,.08);border:2px solid rgba(0,191,255,.3);border-radius:10px;font-size:13px;color:var(--light-purple)">📖 {c.get("booklet_name","")}, Page {c.get("page_number","?")} · Slot {c.get("slot_position","?")}</div>' if c.get("booklet_name") else ""}
     </div>
 
-    <div style="display:flex;gap:12px;margin-top:16px">
+    <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="revalue('{card_id}')">🔄 Re-estimate Value</button>
         <button class="btn btn-danger btn-sm" onclick="if(confirm('Delete this card?'))deleteCard('{card_id}')">🗑️ Delete</button>
     </div>
@@ -766,7 +782,7 @@ function deleteCard(id){{
 }}
 </script>"""
 
-    return render(c["player"], content, scripts, "collection")
+    return render(player, content, scripts, "collection")
 
 
 @app.route("/settings")
