@@ -297,6 +297,9 @@ def scanner_page():
         </div>
     </div>
 
+    <!-- Error display -->
+    <div id="errorBox" style="display:none;margin-top:16px;padding:16px;background:rgba(255,68,68,.15);border:2px solid #FF4444;border-radius:12px;color:#FF4444;font-weight:600"></div>
+
     <!-- Binder Info Bar -->
     <div id="binderInfo" style="display:none;margin-top:16px">
         <div class="panel" style="padding:16px">
@@ -434,6 +437,9 @@ function setMode(mode) {
 var fileInput = document.getElementById('fileInput');
 function onFileSelected() {
     if (!fileInput.files || !fileInput.files.length) return;
+    // Immediate visual feedback — proves JS fired
+    document.getElementById('uploadTitle').textContent = '⏳ Loading…';
+    document.getElementById('uploadSub').textContent = fileInput.files.length + ' photo(s) selected';
     if (currentMode === 'binder' && fileInput.files.length > 1) {
         startBatch(Array.from(fileInput.files));
     } else {
@@ -460,9 +466,18 @@ dz.addEventListener('drop',function(ev){
 
 function handleUpload(inp){ if(inp && inp.files && inp.files[0]) processFile(inp.files[0]); }
 
+function showError(msg) {
+    var box = document.getElementById('errorBox');
+    box.textContent = '❌ ' + msg;
+    box.style.display = 'block';
+    setTimeout(function(){ box.style.display = 'none'; }, 8000);
+}
+
 function processFile(file) {
     currentFile = file;
+    document.getElementById('errorBox').style.display = 'none';
     var r = new FileReader();
+    r.onerror = function() { showError('Could not read the photo. Try again.'); };
     r.onload = function(e) {
         if (currentMode === 'binder') {
             document.getElementById('binderPreview').src = e.target.result;
@@ -533,7 +548,7 @@ function detectCards(autoIdentify) {
     })
     .catch(function(e) {
         btn.disabled = false; btn.textContent = '🔍 Detect Cards';
-        showToast('Detection failed: ' + e.message, 'error');
+        showError('Detection failed: ' + e.message);
         status.textContent = '❌ ' + e.message;
     });
 }
