@@ -258,12 +258,11 @@ def scanner_page():
     </div>
 
     <!-- Upload Zone — label wrapping is most reliable on iOS Safari -->
-    <input type="file" id="fileInput" accept="image/*"
-           style="display:none" onchange="handleUpload(this)">
+    <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none">
     <label for="fileInput" class="upload-zone" id="dropZone">
         <div class="upload-icon" id="uploadIcon">📖</div>
         <div class="upload-title" id="uploadTitle">Tap to Scan Binder Page</div>
-        <div class="upload-sub" id="uploadSub">Full 3×3 page photo · JPG, PNG, WEBP up to 16MB</div>
+        <div class="upload-sub" id="uploadSub">Take a photo or choose from library</div>
     </label>
 
     <!-- Binder Info Bar -->
@@ -394,7 +393,15 @@ function setMode(mode) {
     resetScanner();
 }
 
-// ── Drag & drop ────────────────────────────────────────────────────────────
+// ── File input — use addEventListener (more reliable than onchange on iOS) ──
+var fileInput = document.getElementById('fileInput');
+function onFileSelected() {
+    if (fileInput.files && fileInput.files[0]) processFile(fileInput.files[0]);
+}
+fileInput.addEventListener('change', onFileSelected);
+fileInput.addEventListener('input',  onFileSelected); // iOS Safari fallback
+
+// ── Drag & drop (desktop) ──────────────────────────────────────────────────
 var dz = document.getElementById('dropZone');
 ['dragenter','dragover'].forEach(function(e){
     dz.addEventListener(e,function(ev){ev.preventDefault();ev.stopPropagation();dz.classList.add('dragover')});
@@ -419,12 +426,15 @@ function processFile(file) {
             document.getElementById('binderPreview').src = e.target.result;
             document.getElementById('binderResults').style.display = 'block';
             document.getElementById('cardGrid').style.display = 'none';
+            dz.style.display = 'none';
+            document.getElementById('binderInfo').style.display = 'block';
+            // Auto-detect then auto-identify — no button taps needed on mobile
+            setTimeout(function(){ detectCards(true); }, 300);
         } else {
             document.getElementById('singlePreview').src = e.target.result;
             document.getElementById('singleResults').style.display = 'block';
+            dz.style.display = 'none';
         }
-        dz.style.display = 'none';
-        document.getElementById('binderInfo').style.display = currentMode === 'binder' ? 'block' : 'none';
     };
     r.readAsDataURL(file);
 }
@@ -444,12 +454,13 @@ function resetScanner() {
 }
 
 // ── BINDER: Detect cards ───────────────────────────────────────────────────
-function detectCards() {
+function detectCards(autoIdentify) {
     if (!currentFile) { showToast('No image loaded', 'error'); return; }
     var btn = document.getElementById('detectBtn');
     var status = document.getElementById('detectStatus');
     btn.disabled = true; btn.textContent = '⏳ Detecting…';
-    status.textContent = 'Running OpenCV card detection…';
+    status.textContent = '🔍 Detecting cards…';
+    document.getElementById('cardGrid').style.display = 'none';
 
     var fd = new FormData();
     fd.append('image', currentFile);
@@ -458,17 +469,23 @@ function detectCards() {
     .then(function(r){return r.json()})
     .then(function(res) {
         btn.disabled = false; btn.textContent = '🔍 Detect Cards';
-        if (res.error && res.cards && res.cards.length === 0) {
+        if (res.error && (!res.cards || res.cards.length === 0)) {
             showToast(res.error, 'error');
             status.textContent = '❌ ' + res.error;
             return;
         }
         detectedCards = res.cards || [];
-        status.textContent = '✅ Found ' + detectedCards.length + ' cards';
+        status.textContent = '✅ Found ' + detectedCards.length + ' card' + (detectedCards.length !== 1 ? 's' : '');
         document.getElementById('cardCount').textContent = '(' + detectedCards.length + ' found)';
         renderCardGrid(detectedCards);
         document.getElementById('cardGrid').style.display = 'block';
-        showToast('Detected ' + detectedCards.length + ' cards — click AI Identify All!');
+        // Auto-identify after detect
+        if (autoIdentify && detectedCards.length > 0) {
+            status.textContent = '✅ Found ' + detectedCards.length + ' cards — identifying…';
+            setTimeout(function(){ identifyAll(true); }, 500);
+        } else {
+            showToast('Found ' + detectedCards.length + ' cards — tap AI Identify All!');
+        }
     })
     .catch(function(e) {
         btn.disabled = false; btn.textContent = '🔍 Detect Cards';
@@ -493,11 +510,11 @@ function renderCardGrid(cards) {
 }
 
 // ── BINDER: Identify all ──────────────────────────────────────────────────
-function identifyAll() {
+function identifyAll(auto) {
     if (!detectedCards.length) { showToast('Detect cards first', 'error'); return; }
     var btn = document.getElementById('identifyBtn');
     btn.disabled = true; btn.textContent = '⏳ Identifying…';
-    showToast('Claude Vision is reading ' + detectedCards.length + ' cards…');
+    if (!auto) showToast('Claude Vision is reading ' + detectedCards.length + ' cards…');
 
     fetch('/api/identify-batch', {
         method:'POST',
