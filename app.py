@@ -300,6 +300,12 @@ def scanner_page():
     <!-- Error display -->
     <div id="errorBox" style="display:none;margin-top:16px;padding:16px;background:rgba(255,68,68,.15);border:2px solid #FF4444;border-radius:12px;color:#FF4444;font-weight:600"></div>
 
+    <!-- Debug console -->
+    <div id="debugBox" style="margin-top:12px;background:#0D0628;border:2px solid rgba(123,47,255,.4);border-radius:12px;padding:12px;font-family:monospace;font-size:11px;max-height:180px;overflow-y:auto">
+        <div style="color:var(--electric-purple);font-weight:700;margin-bottom:6px">🔍 Debug Log</div>
+        <div id="debugLog"></div>
+    </div>
+
     <!-- Binder Info Bar -->
     <div id="binderInfo" style="display:none;margin-top:16px">
         <div class="panel" style="padding:16px">
@@ -436,13 +442,15 @@ function setMode(mode) {
 // ── File input — use addEventListener (more reliable than onchange on iOS) ──
 var fileInput = document.getElementById('fileInput');
 function onFileSelected() {
-    if (!fileInput.files || !fileInput.files.length) return;
-    // Immediate visual feedback — proves JS fired
+    dbg('onFileSelected fired. files=' + (fileInput.files ? fileInput.files.length : 'null'));
+    if (!fileInput.files || !fileInput.files.length) { dbg('No files — returning'); return; }
     document.getElementById('uploadTitle').textContent = '⏳ Loading…';
     document.getElementById('uploadSub').textContent = fileInput.files.length + ' photo(s) selected';
     if (currentMode === 'binder' && fileInput.files.length > 1) {
+        dbg('Batch mode: ' + fileInput.files.length + ' files');
         startBatch(Array.from(fileInput.files));
     } else {
+        dbg('Single file: ' + fileInput.files[0].name + ' (' + fileInput.files[0].size + ' bytes)');
         processFile(fileInput.files[0]);
     }
 }
@@ -466,7 +474,21 @@ dz.addEventListener('drop',function(ev){
 
 function handleUpload(inp){ if(inp && inp.files && inp.files[0]) processFile(inp.files[0]); }
 
+function dbg(msg) {
+    var log = document.getElementById('debugLog');
+    if (!log) return;
+    var ts = new Date().toISOString().substr(11,8);
+    var line = document.createElement('div');
+    line.style.color = '#E8DEFF';
+    line.style.borderBottom = '1px solid rgba(123,47,255,.15)';
+    line.style.paddingBottom = '3px';
+    line.style.marginBottom = '3px';
+    line.textContent = ts + ' ' + msg;
+    log.appendChild(line);
+    log.parentElement.scrollTop = log.parentElement.scrollHeight;
+}
 function showError(msg) {
+    dbg('ERROR: ' + msg);
     var box = document.getElementById('errorBox');
     box.textContent = '❌ ' + msg;
     box.style.display = 'block';
@@ -474,23 +496,26 @@ function showError(msg) {
 }
 
 function processFile(file) {
+    dbg('processFile: reading file...');
     currentFile = file;
     document.getElementById('errorBox').style.display = 'none';
     var r = new FileReader();
     r.onerror = function() { showError('Could not read the photo. Try again.'); };
     r.onload = function(e) {
+        dbg('FileReader done. Mode=' + currentMode);
         if (currentMode === 'binder') {
             document.getElementById('binderPreview').src = e.target.result;
             document.getElementById('binderResults').style.display = 'block';
             document.getElementById('cardGrid').style.display = 'none';
             dz.style.display = 'none';
             document.getElementById('binderInfo').style.display = 'block';
-            // Auto-detect then auto-identify — no button taps needed on mobile
+            dbg('Calling detectCards in 300ms...');
             setTimeout(function(){ detectCards(true); }, 300);
         } else {
             document.getElementById('singlePreview').src = e.target.result;
             document.getElementById('singleResults').style.display = 'block';
             dz.style.display = 'none';
+            dbg('Single mode ready — waiting for user input');
         }
     };
     r.readAsDataURL(file);
@@ -514,7 +539,8 @@ function resetScanner() {
 
 // ── BINDER: Detect cards ───────────────────────────────────────────────────
 function detectCards(autoIdentify) {
-    if (!currentFile) { showToast('No image loaded', 'error'); return; }
+    if (!currentFile) { dbg('detectCards: no currentFile!'); showToast('No image loaded', 'error'); return; }
+    dbg('detectCards: calling /api/detect...');
     var btn = document.getElementById('detectBtn');
     var status = document.getElementById('detectStatus');
     btn.disabled = true; btn.textContent = '⏳ Detecting…';
@@ -528,8 +554,9 @@ function detectCards(autoIdentify) {
     .then(function(r){return r.json()})
     .then(function(res) {
         btn.disabled = false; btn.textContent = '🔍 Detect Cards';
+        dbg('detect response: ' + JSON.stringify(res).substr(0,120));
         if (res.error && (!res.cards || res.cards.length === 0)) {
-            showToast(res.error, 'error');
+            showError(res.error);
             status.textContent = '❌ ' + res.error;
             return;
         }
@@ -538,7 +565,6 @@ function detectCards(autoIdentify) {
         document.getElementById('cardCount').textContent = '(' + detectedCards.length + ' found)';
         renderCardGrid(detectedCards);
         document.getElementById('cardGrid').style.display = 'block';
-        // Auto-identify after detect
         if (autoIdentify && detectedCards.length > 0) {
             status.textContent = '✅ Found ' + detectedCards.length + ' cards — identifying…';
             setTimeout(function(){ identifyAll(true); }, 500);
@@ -549,7 +575,6 @@ function detectCards(autoIdentify) {
     .catch(function(e) {
         btn.disabled = false; btn.textContent = '🔍 Detect Cards';
         showError('Detection failed: ' + e.message);
-        status.textContent = '❌ ' + e.message;
     });
 }
 
@@ -823,7 +848,9 @@ function saveCard(){
 }
 
 // Init
+dbg('Scanner JS loaded. Setting binder mode...');
 setMode('binder');
+dbg('Ready. fileInput=' + (fileInput ? 'found' : 'MISSING'));
 </script>"""
 
     return render("Scanner", content, scripts, "scan")
