@@ -1,5 +1,5 @@
 /* CardVault AI — Service Worker */
-const CACHE = 'cardvault-v1';
+const CACHE = 'cardvault-v4';
 const ASSETS = [
   '/',
   '/collection',
