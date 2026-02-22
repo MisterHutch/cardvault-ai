@@ -265,6 +265,38 @@ def scanner_page():
         <div class="upload-sub" id="uploadSub">Take a photo or choose from library</div>
     </label>
 
+    <!-- Batch Progress Panel -->
+    <div id="batchProgress" style="display:none;margin-top:16px">
+        <div class="panel">
+            <div class="panel-title">⚡ Batch Scanning</div>
+            <div id="batchStatus" style="color:var(--light-purple);font-size:14px;margin-bottom:12px"></div>
+            <div class="confidence-track" style="height:14px;border-radius:8px">
+                <div id="batchBar" class="confidence-fill" style="width:0%;background:var(--electric-purple);transition:width .4s ease"></div>
+            </div>
+            <div id="batchPageStatus" style="margin-top:16px;display:grid;gap:8px" ></div>
+        </div>
+        <div id="batchSavePanel" style="display:none">
+            <div class="panel">
+                <div class="panel-title">💾 Save Entire Batch</div>
+                <div class="form-row" style="margin-bottom:16px">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Booklet / Binder Name</label>
+                        <input class="form-input" id="batchBookletName" placeholder="e.g. My Prizm Binder">
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Starting Page #</label>
+                        <input class="form-input" id="batchStartPage" type="number" value="1" min="1">
+                    </div>
+                </div>
+                <div id="batchSummary" style="color:var(--light-purple);font-size:14px;margin-bottom:16px"></div>
+                <div style="display:flex;gap:12px;flex-wrap:wrap">
+                    <button class="btn btn-primary" onclick="saveBatchAll()">💾 Save All Cards</button>
+                    <button class="btn btn-ghost" onclick="resetScanner()">↩ Start Over</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Binder Info Bar -->
     <div id="binderInfo" style="display:none;margin-top:16px">
         <div class="panel" style="padding:16px">
@@ -379,6 +411,9 @@ var currentMode = 'binder';
 var currentFile = null;
 var detectedCards = [];
 var identifiedCards = [];
+var batchFiles = [];
+var batchResults = [];  // [{pageIndex, cards:[...identified]}]
+var batchCurrent = 0;
 
 // ── Mode selector ──────────────────────────────────────────────────────────
 function setMode(mode) {
@@ -387,16 +422,23 @@ function setMode(mode) {
     document.getElementById('modeBinder').className = isBinder ? 'btn btn-primary' : 'btn btn-ghost';
     document.getElementById('modeSingle').className = isBinder ? 'btn btn-ghost' : 'btn btn-primary';
     document.getElementById('uploadIcon').textContent = isBinder ? '📖' : '🃏';
-    document.getElementById('uploadTitle').textContent = isBinder ? 'Tap to Scan Binder Page' : 'Tap to Scan a Card';
-    document.getElementById('uploadSub').textContent = isBinder ? 'Full 3×3 page photo · JPG, PNG, WEBP up to 16MB' : 'Single card · JPG, PNG, WEBP up to 16MB';
+    document.getElementById('uploadTitle').textContent = isBinder ? 'Tap to Scan Binder Pages' : 'Tap to Scan a Card';
+    document.getElementById('uploadSub').textContent = isBinder ? 'Select one or multiple pages from your library' : 'Single card · take photo or choose from library';
     document.getElementById('binderInfo').style.display = isBinder ? 'block' : 'none';
+    // Enable multi-select for binder mode
+    fileInput.multiple = isBinder;
     resetScanner();
 }
 
 // ── File input — use addEventListener (more reliable than onchange on iOS) ──
 var fileInput = document.getElementById('fileInput');
 function onFileSelected() {
-    if (fileInput.files && fileInput.files[0]) processFile(fileInput.files[0]);
+    if (!fileInput.files || !fileInput.files.length) return;
+    if (currentMode === 'binder' && fileInput.files.length > 1) {
+        startBatch(Array.from(fileInput.files));
+    } else {
+        processFile(fileInput.files[0]);
+    }
 }
 fileInput.addEventListener('change', onFileSelected);
 fileInput.addEventListener('input',  onFileSelected); // iOS Safari fallback
@@ -441,12 +483,14 @@ function processFile(file) {
 
 function resetScanner() {
     currentFile = null; detectedCards = []; identifiedCards = [];
+    batchFiles = []; batchResults = []; batchCurrent = 0;
     dz.style.display = 'block';
-    document.getElementById('fileInput').value = '';
+    fileInput.value = '';
     document.getElementById('binderResults').style.display = 'none';
     document.getElementById('singleResults').style.display = 'none';
     document.getElementById('cardGrid').style.display = 'none';
     document.getElementById('saveBatchPanel').style.display = 'none';
+    document.getElementById('batchProgress').style.display = 'none';
     document.getElementById('cardGridInner').innerHTML = '';
     document.getElementById('detectStatus').textContent = '';
     document.getElementById('estimatePanel').style.display = 'none';
@@ -566,6 +610,99 @@ function saveBatch() {
         setTimeout(function(){window.location='/collection'},1500);
     })
     .catch(function(e){ showToast('Save failed: ' + e.message, 'error'); });
+}
+
+// ── BATCH: Process multiple binder pages ──────────────────────────────────
+function startBatch(files) {
+    batchFiles = files;
+    batchResults = [];
+    batchCurrent = 0;
+    dz.style.display = 'none';
+    document.getElementById('binderResults').style.display = 'none';
+    document.getElementById('batchProgress').style.display = 'block';
+    document.getElementById('batchSavePanel').style.display = 'none';
+    // Build page status list
+    var ps = document.getElementById('batchPageStatus');
+    ps.innerHTML = '';
+    files.forEach(function(f, i) {
+        ps.innerHTML += '<div id="bpage-'+i+'" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(123,47,255,.08);border-radius:8px">' +
+            '<span id="bpage-icon-'+i+'">⏳</span>' +
+            '<span style="flex:1;font-size:13px;color:var(--light-purple)">Page ' + (i+1) + ' — ' + f.name + '</span>' +
+            '<span id="bpage-count-'+i+'" style="font-size:12px;font-weight:700;color:var(--slime-green)"></span>' +
+            '</div>';
+    });
+    processBatchPage();
+}
+
+function processBatchPage() {
+    if (batchCurrent >= batchFiles.length) {
+        finishBatch(); return;
+    }
+    var i = batchCurrent;
+    var pct = Math.round((i / batchFiles.length) * 100);
+    document.getElementById('batchBar').style.width = pct + '%';
+    document.getElementById('batchStatus').textContent = 'Processing page ' + (i+1) + ' of ' + batchFiles.length + '…';
+    document.getElementById('bpage-icon-'+i).textContent = '🔍';
+
+    var fd = new FormData();
+    fd.append('image', batchFiles[i]);
+    fetch('/api/detect', {method:'POST', body:fd})
+    .then(function(r){return r.json()})
+    .then(function(res) {
+        var cards = res.cards || [];
+        document.getElementById('bpage-icon-'+i).textContent = '🤖';
+        document.getElementById('bpage-count-'+i).textContent = cards.length + ' cards found';
+        if (cards.length === 0) {
+            document.getElementById('bpage-icon-'+i).textContent = '⚠️';
+            batchResults.push({pageIndex: i, cards: []});
+            batchCurrent++; processBatchPage(); return;
+        }
+        // Identify cards on this page
+        return fetch('/api/identify-batch', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({cards: cards})
+        }).then(function(r){return r.json()})
+        .then(function(idRes) {
+            var identified = idRes.results || cards;
+            document.getElementById('bpage-icon-'+i).textContent = '✅';
+            var names = identified.slice(0,3).map(function(c){return c.player_name||'?';}).filter(Boolean).join(', ');
+            document.getElementById('bpage-count-'+i).textContent = identified.length + ' cards — ' + names + (identified.length > 3 ? '…' : '');
+            batchResults.push({pageIndex: i, cards: identified});
+            batchCurrent++;
+            processBatchPage();
+        });
+    })
+    .catch(function(e) {
+        document.getElementById('bpage-icon-'+i).textContent = '❌';
+        batchResults.push({pageIndex: i, cards: []});
+        batchCurrent++; processBatchPage();
+    });
+}
+
+function finishBatch() {
+    document.getElementById('batchBar').style.width = '100%';
+    var totalCards = batchResults.reduce(function(s,p){return s+p.cards.length;},0);
+    document.getElementById('batchStatus').textContent = '✅ All ' + batchFiles.length + ' pages scanned!';
+    document.getElementById('batchSummary').textContent =
+        totalCards + ' cards identified across ' + batchFiles.length + ' pages. Set a booklet name and save.';
+    document.getElementById('batchSavePanel').style.display = 'block';
+    showToast('Done! ' + totalCards + ' cards ready to save.');
+}
+
+function saveBatchAll() {
+    var booklet = document.getElementById('batchBookletName').value || 'My Collection';
+    var startPage = parseInt(document.getElementById('batchStartPage').value) || 1;
+    var saves = batchResults.map(function(p, idx) {
+        return fetch('/api/save-batch', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({cards: p.cards, booklet_name: booklet, page_number: startPage + p.pageIndex})
+        }).then(function(r){return r.json();});
+    });
+    Promise.all(saves).then(function(results) {
+        var total = results.reduce(function(s,r){return s+(r.count||0);},0);
+        showToast('✅ Saved ' + total + ' cards to "' + booklet + '"!');
+        setTimeout(function(){window.location='/collection';}, 1500);
+    }).catch(function(e){ showToast('Save failed: '+e.message,'error'); });
 }
 
 // ── SINGLE: AI Identify ───────────────────────────────────────────────────
