@@ -227,6 +227,8 @@ body{font-family:'Rubik',sans-serif;background:var(--midnight);color:var(--off-w
 .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
 .card-item{background:var(--deep-blue);border:3px solid rgba(123,47,255,.3);border-radius:var(--radius-block);overflow:hidden;transition:all .15s;cursor:pointer;text-decoration:none;color:inherit;display:block}
 .card-item:hover{border-color:var(--hot-pink);transform:translateY(-4px);box-shadow:var(--shadow-big) rgba(255,45,120,.2)}
+.card-detect-cell{background:var(--deep-blue);border:2px solid rgba(123,47,255,.4);border-radius:12px;overflow:hidden;transition:border-color .2s}
+.card-detect-cell:hover{border-color:var(--hot-pink)}
 .card-thumb{height:160px;background:linear-gradient(135deg,var(--deep-blue),var(--midnight));display:grid;place-items:center;font-size:48px;opacity:.5}
 .card-info{padding:16px}
 .card-player-name{font-family:'Lilita One',cursive;font-size:18px;margin-bottom:4px}
@@ -361,95 +363,349 @@ def render(title, content, scripts="", active="scan"):
 def scanner_page():
     content = """
     <h1 class="page-title">Card Scanner</h1>
-    <p class="page-sub">Upload a binder page or single card photo for AI identification and valuation.</p>
+    <p class="page-sub">Scan a full binder page (9 cards) or a single card — AI identifies everything automatically.</p>
 
+    <!-- Mode Selector -->
+    <div style="display:flex;gap:12px;margin-bottom:24px">
+        <button class="btn btn-primary" id="modeBinder" onclick="setMode('binder')">📖 Binder Page (9 cards)</button>
+        <button class="btn btn-ghost" id="modeSingle" onclick="setMode('single')">🃏 Single Card</button>
+    </div>
+
+    <!-- Upload Zone -->
     <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
-        <div class="upload-icon">📸</div>
-        <div class="upload-title">Drop Your Card Photo Here</div>
-        <div class="upload-sub">or click to browse &middot; JPG, PNG, WEBP up to 16MB</div>
+        <div class="upload-icon" id="uploadIcon">📖</div>
+        <div class="upload-title" id="uploadTitle">Drop Your Binder Page Here</div>
+        <div class="upload-sub" id="uploadSub">Full 3×3 page photo · JPG, PNG, WEBP up to 16MB</div>
         <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleUpload(this)">
     </div>
 
-    <div id="scanResults" style="display:none">
-    <div class="scan-result">
-        <div class="panel">
-            <div class="panel-title">📷 Uploaded Image</div>
-            <div class="scan-image-panel"><img id="previewImage" src="" alt="Scanned card"></div>
-        </div>
-        <div>
-            <div class="panel">
-                <div class="panel-title">🎯 Card Details</div>
-                <div class="form-row">
-                    <div class="form-group"><label class="form-label">Player</label><input class="form-input" id="fPlayer" placeholder="e.g. Patrick Mahomes"></div>
-                    <div class="form-group"><label class="form-label">Year</label><input class="form-input" id="fYear" type="number" placeholder="2017"></div>
+    <!-- Binder Info Bar -->
+    <div id="binderInfo" style="display:none;margin-top:16px">
+        <div class="panel" style="padding:16px">
+            <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+                <div class="form-group" style="margin:0;flex:1;min-width:180px">
+                    <label class="form-label">Booklet / Binder Name</label>
+                    <input class="form-input" id="binderName" placeholder="e.g. My Prizm Collection">
                 </div>
-                <div class="form-row">
-                    <div class="form-group"><label class="form-label">Set</label><input class="form-input" id="fSet" placeholder="e.g. Prizm"></div>
-                    <div class="form-group"><label class="form-label">Card #</label><input class="form-input" id="fNumber" placeholder="e.g. 269"></div>
+                <div class="form-group" style="margin:0;width:120px">
+                    <label class="form-label">Page #</label>
+                    <input class="form-input" id="pageNumber" type="number" value="1" min="1">
                 </div>
-                <div class="form-row-3">
-                    <div class="form-group"><label class="form-label">Sport</label>
-                        <select class="form-select" id="fSport">
-                            <option value="football">Football</option><option value="basketball">Basketball</option>
-                            <option value="baseball">Baseball</option><option value="soccer">Soccer</option>
-                            <option value="hockey">Hockey</option><option value="other">Other</option>
-                        </select>
-                    </div>
-                    <div class="form-group"><label class="form-label">Parallel</label><input class="form-input" id="fParallel" placeholder="e.g. Silver"></div>
-                    <div class="form-group"><label class="form-label">Serial #</label><input class="form-input" id="fSerial" placeholder="e.g. 23/99"></div>
-                </div>
-                <div class="form-row-3">
-                    <div class="form-group"><label class="form-check"><input type="checkbox" id="fRookie"> Rookie</label></div>
-                    <div class="form-group"><label class="form-check"><input type="checkbox" id="fAuto"> Autograph</label></div>
-                    <div class="form-group"><label class="form-label">Condition</label>
-                        <select class="form-select" id="fCondition">
-                            <option value="raw">Raw</option><option value="gem_mint">Gem Mint</option>
-                            <option value="mint">Mint</option><option value="nm_plus">NM+</option>
-                            <option value="near_mint">Near Mint</option><option value="excellent">Excellent</option>
-                            <option value="good">Good</option>
-                        </select>
-                    </div>
-                </div>
-                <div style="display:flex;gap:12px;margin-top:16px">
-                    <button class="btn btn-primary" onclick="getEstimate()">💰 Get Value</button>
-                    <button class="btn btn-secondary" onclick="saveCard()">💾 Save to Collection</button>
-                </div>
-            </div>
-            <div class="panel" id="estimatePanel" style="display:none">
-                <div class="panel-title">💰 Value Estimate</div>
-                <div id="estimateContent"></div>
             </div>
         </div>
     </div>
+
+    <!-- ===== BINDER PAGE RESULTS ===== -->
+    <div id="binderResults" style="display:none;margin-top:24px">
+
+        <!-- Preview + Detect -->
+        <div class="panel">
+            <div class="panel-title">📷 Binder Page Preview</div>
+            <img id="binderPreview" src="" alt="Binder page" style="max-width:100%;border-radius:10px;margin-bottom:16px">
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                <button class="btn btn-primary" id="detectBtn" onclick="detectCards()">🔍 Detect Cards</button>
+                <span id="detectStatus" style="color:var(--light-purple);font-size:14px"></span>
+            </div>
+        </div>
+
+        <!-- Card Grid (populated after detect) -->
+        <div id="cardGrid" style="display:none">
+            <div class="panel">
+                <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center">
+                    <span>🎯 Detected Cards <span id="cardCount" style="color:var(--light-purple);font-size:16px"></span></span>
+                    <button class="btn btn-secondary btn-sm" id="identifyBtn" onclick="identifyAll()">🤖 AI Identify All</button>
+                </div>
+                <div id="cardGridInner" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px"></div>
+            </div>
+
+            <!-- Save Batch -->
+            <div class="panel" id="saveBatchPanel" style="display:none">
+                <div class="panel-title">💾 Save to Collection</div>
+                <p style="color:var(--light-purple);font-size:14px;margin-bottom:16px">Review cards above, then save the full page to your collection.</p>
+                <button class="btn btn-primary" onclick="saveBatch()">💾 Save All Cards</button>
+                <button class="btn btn-ghost" style="margin-left:12px" onclick="resetScanner()">↩ Scan Another Page</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== SINGLE CARD RESULTS ===== -->
+    <div id="singleResults" style="display:none;margin-top:24px">
+        <div class="scan-result">
+            <div class="panel">
+                <div class="panel-title">📷 Card Preview</div>
+                <div class="scan-image-panel"><img id="singlePreview" src="" alt="Card"></div>
+                <button class="btn btn-secondary" style="margin-top:12px;width:100%" id="singleIdentifyBtn" onclick="identifySingle()">🤖 AI Identify</button>
+            </div>
+            <div>
+                <div class="panel">
+                    <div class="panel-title">🎯 Card Details</div>
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">Player</label><input class="form-input" id="fPlayer" placeholder="e.g. Patrick Mahomes"></div>
+                        <div class="form-group"><label class="form-label">Year</label><input class="form-input" id="fYear" type="number" placeholder="2017"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">Set</label><input class="form-input" id="fSet" placeholder="e.g. Prizm"></div>
+                        <div class="form-group"><label class="form-label">Card #</label><input class="form-input" id="fNumber" placeholder="e.g. 269"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">Sport</label>
+                            <select class="form-select" id="fSport">
+                                <option value="football">Football</option><option value="basketball">Basketball</option>
+                                <option value="baseball">Baseball</option><option value="soccer">Soccer</option>
+                                <option value="hockey">Hockey</option><option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label class="form-label">Parallel</label><input class="form-input" id="fParallel" placeholder="e.g. Silver"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">Serial #</label><input class="form-input" id="fSerial" placeholder="e.g. 23/99"></div>
+                        <div class="form-group"><label class="form-label">Condition</label>
+                            <select class="form-select" id="fCondition">
+                                <option value="raw">Raw</option><option value="gem_mint">Gem Mint</option>
+                                <option value="mint">Mint</option><option value="nm_plus">NM+</option>
+                                <option value="near_mint">Near Mint</option><option value="excellent">Excellent</option>
+                                <option value="good">Good</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:12px;margin-top:8px">
+                        <label class="form-check"><input type="checkbox" id="fRookie"> Rookie</label>
+                        <label class="form-check"><input type="checkbox" id="fAuto"> Autograph</label>
+                        <label class="form-check"><input type="checkbox" id="fPatch"> Patch</label>
+                    </div>
+                    <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap">
+                        <button class="btn btn-primary" onclick="getEstimate()">💰 Get Value</button>
+                        <button class="btn btn-secondary" onclick="saveCard()">💾 Save to Collection</button>
+                        <button class="btn btn-ghost" onclick="resetScanner()">↩ Scan Another</button>
+                    </div>
+                </div>
+                <div class="panel" id="estimatePanel" style="display:none">
+                    <div class="panel-title">💰 Value Estimate</div>
+                    <div id="estimateContent"></div>
+                </div>
+            </div>
+        </div>
     </div>
     """
 
     scripts = """<script>
-var dz=document.getElementById('dropZone');
+var currentMode = 'binder';
+var currentFile = null;
+var detectedCards = [];
+var identifiedCards = [];
+
+// ── Mode selector ──────────────────────────────────────────────────────────
+function setMode(mode) {
+    currentMode = mode;
+    var isBinder = mode === 'binder';
+    document.getElementById('modeBinder').className = isBinder ? 'btn btn-primary' : 'btn btn-ghost';
+    document.getElementById('modeSingle').className = isBinder ? 'btn btn-ghost' : 'btn btn-primary';
+    document.getElementById('uploadIcon').textContent = isBinder ? '📖' : '🃏';
+    document.getElementById('uploadTitle').textContent = isBinder ? 'Drop Your Binder Page Here' : 'Drop Your Card Photo Here';
+    document.getElementById('uploadSub').textContent = isBinder ? 'Full 3×3 page photo · JPG, PNG, WEBP up to 16MB' : 'Single card · JPG, PNG, WEBP up to 16MB';
+    document.getElementById('binderInfo').style.display = isBinder ? 'block' : 'none';
+    resetScanner();
+}
+
+// ── Drag & drop ────────────────────────────────────────────────────────────
+var dz = document.getElementById('dropZone');
 ['dragenter','dragover'].forEach(function(e){dz.addEventListener(e,function(ev){ev.preventDefault();dz.classList.add('dragover')})});
 ['dragleave','drop'].forEach(function(e){dz.addEventListener(e,function(ev){ev.preventDefault();dz.classList.remove('dragover')})});
-dz.addEventListener('drop',function(ev){if(ev.dataTransfer.files[0])processFile(ev.dataTransfer.files[0])});
+dz.addEventListener('drop',function(ev){ev.preventDefault();dz.classList.remove('dragover');if(ev.dataTransfer.files[0])processFile(ev.dataTransfer.files[0])});
 
 function handleUpload(inp){if(inp.files[0])processFile(inp.files[0])}
-function processFile(file){
-    var r=new FileReader();
-    r.onload=function(e){document.getElementById('previewImage').src=e.target.result;document.getElementById('scanResults').style.display='block';dz.style.display='none'};
+
+function processFile(file) {
+    currentFile = file;
+    var r = new FileReader();
+    r.onload = function(e) {
+        if (currentMode === 'binder') {
+            document.getElementById('binderPreview').src = e.target.result;
+            document.getElementById('binderResults').style.display = 'block';
+            document.getElementById('cardGrid').style.display = 'none';
+        } else {
+            document.getElementById('singlePreview').src = e.target.result;
+            document.getElementById('singleResults').style.display = 'block';
+        }
+        dz.style.display = 'none';
+        document.getElementById('binderInfo').style.display = currentMode === 'binder' ? 'block' : 'none';
+    };
     r.readAsDataURL(file);
 }
 
+function resetScanner() {
+    currentFile = null; detectedCards = []; identifiedCards = [];
+    dz.style.display = 'block';
+    document.getElementById('fileInput').value = '';
+    document.getElementById('binderResults').style.display = 'none';
+    document.getElementById('singleResults').style.display = 'none';
+    document.getElementById('cardGrid').style.display = 'none';
+    document.getElementById('saveBatchPanel').style.display = 'none';
+    document.getElementById('cardGridInner').innerHTML = '';
+    document.getElementById('detectStatus').textContent = '';
+    document.getElementById('estimatePanel').style.display = 'none';
+    if (currentMode === 'binder') document.getElementById('binderInfo').style.display = 'block';
+}
+
+// ── BINDER: Detect cards ───────────────────────────────────────────────────
+function detectCards() {
+    if (!currentFile) { showToast('No image loaded', 'error'); return; }
+    var btn = document.getElementById('detectBtn');
+    var status = document.getElementById('detectStatus');
+    btn.disabled = true; btn.textContent = '⏳ Detecting…';
+    status.textContent = 'Running OpenCV card detection…';
+
+    var fd = new FormData();
+    fd.append('image', currentFile);
+
+    fetch('/api/detect', {method:'POST', body:fd})
+    .then(function(r){return r.json()})
+    .then(function(res) {
+        btn.disabled = false; btn.textContent = '🔍 Detect Cards';
+        if (res.error && res.cards && res.cards.length === 0) {
+            showToast(res.error, 'error');
+            status.textContent = '❌ ' + res.error;
+            return;
+        }
+        detectedCards = res.cards || [];
+        status.textContent = '✅ Found ' + detectedCards.length + ' cards';
+        document.getElementById('cardCount').textContent = '(' + detectedCards.length + ' found)';
+        renderCardGrid(detectedCards);
+        document.getElementById('cardGrid').style.display = 'block';
+        showToast('Detected ' + detectedCards.length + ' cards — click AI Identify All!');
+    })
+    .catch(function(e) {
+        btn.disabled = false; btn.textContent = '🔍 Detect Cards';
+        showToast('Detection failed: ' + e.message, 'error');
+        status.textContent = '❌ ' + e.message;
+    });
+}
+
+function renderCardGrid(cards) {
+    var grid = document.getElementById('cardGridInner');
+    grid.innerHTML = '';
+    cards.forEach(function(card, i) {
+        var pos = 'Row ' + (card.row+1) + ', Col ' + (card.col+1);
+        var conf = Math.round((card.confidence||0)*100);
+        grid.innerHTML += '<div class="card-detect-cell" id="cell-'+i+'" data-idx="'+i+'">' +
+            '<img src="/processed/' + card.filename + '" style="width:100%;border-radius:8px;display:block" onerror="this.src=\'\';">' +
+            '<div style="padding:8px">' +
+            '<div style="font-size:11px;color:var(--light-purple);font-weight:700;text-transform:uppercase">' + pos + ' · ' + conf + '% conf</div>' +
+            '<div id="card-label-'+i+'" style="font-size:12px;color:var(--off-white);margin-top:4px">Pending AI ID…</div>' +
+            '</div></div>';
+    });
+}
+
+// ── BINDER: Identify all ──────────────────────────────────────────────────
+function identifyAll() {
+    if (!detectedCards.length) { showToast('Detect cards first', 'error'); return; }
+    var btn = document.getElementById('identifyBtn');
+    btn.disabled = true; btn.textContent = '⏳ Identifying…';
+    showToast('Claude Vision is reading ' + detectedCards.length + ' cards…');
+
+    fetch('/api/identify-batch', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({cards: detectedCards})
+    })
+    .then(function(r){return r.json()})
+    .then(function(res) {
+        btn.disabled = false; btn.textContent = '🤖 AI Identify All';
+        identifiedCards = res.results || [];
+        identifiedCards.forEach(function(card, i) {
+            var label = document.getElementById('card-label-'+i);
+            if (!label) return;
+            if (card.error) {
+                label.innerHTML = '<span style="color:var(--turbo-orange)">⚠ ' + card.error + '</span>';
+                return;
+            }
+            var tags = '';
+            if (card.is_rookie) tags += '<span class="tag tag-rc" style="font-size:9px;padding:1px 5px">RC</span>';
+            if (card.is_auto)   tags += '<span class="tag tag-auto" style="font-size:9px;padding:1px 5px">Auto</span>';
+            if (card.is_numbered) tags += '<span class="tag tag-numbered" style="font-size:9px;padding:1px 5px">' + (card.numbering||'Numbered') + '</span>';
+            label.innerHTML = '<strong>' + (card.player_name||'Unknown') + '</strong> ' + tags +
+                '<br><span style="color:var(--light-purple)">' + (card.year||'') + ' ' + (card.set_name||'') + '</span>' +
+                (card.parallel && card.parallel !== 'Base' ? '<br><span style="color:var(--radical-yellow);font-size:11px">' + card.parallel + '</span>' : '');
+        });
+        document.getElementById('saveBatchPanel').style.display = 'block';
+        showToast('All ' + identifiedCards.length + ' cards identified!');
+    })
+    .catch(function(e) {
+        btn.disabled = false; btn.textContent = '🤖 AI Identify All';
+        showToast('Identification failed: ' + e.message, 'error');
+    });
+}
+
+// ── BINDER: Save batch ────────────────────────────────────────────────────
+function saveBatch() {
+    var booklet = document.getElementById('binderName').value || 'My Collection';
+    var page = parseInt(document.getElementById('pageNumber').value) || 1;
+    var cards = identifiedCards.length ? identifiedCards : detectedCards.map(function(c){return c;});
+
+    fetch('/api/save-batch', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({cards: cards, booklet_name: booklet, page_number: page})
+    })
+    .then(function(r){return r.json()})
+    .then(function(res) {
+        showToast('✅ Saved ' + res.count + ' cards to "' + booklet + '" page ' + page + '!');
+        setTimeout(function(){window.location='/collection'},1500);
+    })
+    .catch(function(e){ showToast('Save failed: ' + e.message, 'error'); });
+}
+
+// ── SINGLE: AI Identify ───────────────────────────────────────────────────
+function identifySingle() {
+    if (!currentFile) { showToast('No image loaded', 'error'); return; }
+    var btn = document.getElementById('singleIdentifyBtn');
+    btn.disabled = true; btn.textContent = '⏳ Identifying…';
+
+    var fd = new FormData();
+    fd.append('image', currentFile);
+
+    fetch('/api/identify', {method:'POST', body:fd})
+    .then(function(r){return r.json()})
+    .then(function(res) {
+        btn.disabled = false; btn.textContent = '🤖 AI Identify';
+        if (res.error) { showToast(res.error, 'error'); return; }
+        document.getElementById('fPlayer').value  = res.player_name || '';
+        document.getElementById('fYear').value    = res.year || '';
+        document.getElementById('fSet').value     = res.set_name || '';
+        document.getElementById('fNumber').value  = res.card_number || '';
+        document.getElementById('fParallel').value= res.parallel && res.parallel!=='Base' ? res.parallel : '';
+        document.getElementById('fSerial').value  = res.numbering || '';
+        document.getElementById('fRookie').checked = !!res.is_rookie;
+        document.getElementById('fAuto').checked   = !!res.is_auto;
+        document.getElementById('fPatch').checked  = !!res.is_patch;
+        var sportSel = document.getElementById('fSport');
+        if (res.sport) {
+            for (var i=0;i<sportSel.options.length;i++) {
+                if (sportSel.options[i].value.toLowerCase()===res.sport.toLowerCase()) { sportSel.selectedIndex=i; break; }
+            }
+        }
+        showToast('Card identified: ' + (res.player_name||'Unknown'));
+    })
+    .catch(function(e) {
+        btn.disabled = false; btn.textContent = '🤖 AI Identify';
+        showToast('Identify failed: ' + e.message, 'error');
+    });
+}
+
+// ── SINGLE: Value estimate ────────────────────────────────────────────────
 function gatherForm(){
     return {
-        player:document.getElementById('fPlayer').value,
-        year:parseInt(document.getElementById('fYear').value)||2024,
-        set_name:document.getElementById('fSet').value,
-        card_number:document.getElementById('fNumber').value,
-        sport:document.getElementById('fSport').value,
-        parallel:document.getElementById('fParallel').value||null,
-        serial_number:document.getElementById('fSerial').value||null,
-        rookie:document.getElementById('fRookie').checked,
-        autograph:document.getElementById('fAuto').checked,
-        condition:document.getElementById('fCondition').value
-    }
+        player: document.getElementById('fPlayer').value,
+        year: parseInt(document.getElementById('fYear').value)||2024,
+        set_name: document.getElementById('fSet').value,
+        card_number: document.getElementById('fNumber').value,
+        sport: document.getElementById('fSport').value,
+        parallel: document.getElementById('fParallel').value||null,
+        serial_number: document.getElementById('fSerial').value||null,
+        rookie: document.getElementById('fRookie').checked,
+        autograph: document.getElementById('fAuto').checked,
+        condition: document.getElementById('fCondition').value
+    };
 }
 
 function getEstimate(){
@@ -465,14 +721,11 @@ function getEstimate(){
         if(data.autograph)tags+='<span class="tag tag-auto">Auto</span>';
         if(data.parallel)tags+='<span class="tag tag-parallel">'+data.parallel+'</span>';
         if(data.serial_number)tags+='<span class="tag tag-numbered">'+data.serial_number+'</span>';
-
         var mrows='';
         if(res.multipliers){for(var k in res.multipliers){if(k[0]!='_')mrows+='<tr><td>'+k+'</td><td class="mult-val">'+res.multipliers[k]+'x</td></tr>';}
         if(res.multipliers._cap_applied)mrows+='<tr><td style="color:var(--turbo-orange)">Cap applied (was '+res.multipliers._uncapped+'x)</td><td class="mult-val">'+res.multipliers._total+'x</td></tr>';}
-
         var src='';
         if(res.sources){res.sources.forEach(function(s){src+='<div class="source-pill">'+s.source+' <span class="val">$'+s.value.toFixed(2)+'</span></div>'});}
-
         document.getElementById('estimateContent').innerHTML=
             '<div class="detail-header"><div><div style="font-family:Lilita One,cursive;font-size:28px">'+data.player+'</div>'+
             '<div style="color:var(--light-purple);font-size:13px;font-weight:600">'+data.year+' '+data.set_name+' #'+data.card_number+'</div>'+
@@ -485,9 +738,8 @@ function getEstimate(){
             '<div class="source-row">'+src+'</div>'+
             '<div style="margin-top:20px"><div style="font-family:Lilita One,cursive;font-size:16px;margin-bottom:8px">Multiplier Breakdown</div>'+
             '<table class="mult-table"><thead><tr><th>Factor</th><th>Mult</th></tr></thead><tbody>'+mrows+'</tbody></table></div>'+
-            (res.grading_rec?'<div style="margin-top:16px;padding:12px 16px;background:rgba(255,232,24,.1);border:2px solid var(--radical-yellow);border-radius:10px;font-size:14px"><strong>Grading:</strong> '+res.grading_rec+'</div>':'')+
+            (res.grading_rec?'<div style="margin-top:16px;padding:12px 16px;background:rgba(255,232,24,.1);border:2px solid var(--radical-yellow);border-radius:10px;font-size:14px"><strong>Grading Rec:</strong> '+res.grading_rec+'</div>':'')+
             (res.trend?'<div style="margin-top:12px;padding:12px 16px;background:rgba(57,255,20,.08);border:2px solid rgba(57,255,20,.3);border-radius:10px;font-size:14px"><strong>Trend:</strong> '+res.trend.direction+' ('+res.trend["30_day_change"]+'% 30d)</div>':'');
-
         document.getElementById('estimatePanel').style.display='block';
         showToast('Value estimate complete!');
     }).catch(function(e){showToast('Error: '+e.message,'error')});
@@ -500,9 +752,13 @@ function saveCard(){
     .then(function(r){return r.json()})
     .then(function(res){
         if(res.error){showToast(res.error,'error');return}
-        showToast('Card saved! ID: '+res.id);
+        showToast('✅ Card saved! ID: '+res.id);
+        setTimeout(function(){window.location='/collection'},1500);
     }).catch(function(e){showToast('Error: '+e.message,'error')});
 }
+
+// Init
+setMode('binder');
 </script>"""
 
     return render("Scanner", content, scripts, "scan")
