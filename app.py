@@ -12,6 +12,9 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()  # Load .env before any os.environ.get() calls
 
 from flask import (
     Flask, render_template_string, request, jsonify,
