@@ -1,0 +1,20 @@
+# Environment & secrets
+.env
+
+# Database
+*.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# Processed images
+processed/
+uploads/
+
+# IDE
+.vscode/
+.idea/

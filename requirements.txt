@@ -1,0 +1,18 @@
+# CardVault AI v4.0 — Merged Dependencies
+# Web framework
+flask>=3.1.0
+gunicorn>=23.0.0
+
+# HTTP / API
+requests>=2.32.3
+
+# Image Processing (card detection)
+opencv-python-headless>=4.8.0
+numpy>=1.24.0
+Pillow>=10.0.0
+
+# AI / Claude Vision API (card identification)
+anthropic>=0.40.0
+
+# Utilities
+python-dotenv>=1.0.0
