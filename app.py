@@ -301,9 +301,12 @@ def scanner_page():
     <div id="errorBox" style="display:none;margin-top:16px;padding:16px;background:rgba(255,68,68,.15);border:2px solid #FF4444;border-radius:12px;color:#FF4444;font-weight:600"></div>
 
     <!-- Debug console -->
-    <div id="debugBox" style="margin-top:12px;background:#0D0628;border:2px solid rgba(123,47,255,.4);border-radius:12px;padding:12px;font-family:monospace;font-size:11px;max-height:180px;overflow-y:auto">
-        <div style="color:var(--electric-purple);font-weight:700;margin-bottom:6px">🔍 Debug Log</div>
-        <div id="debugLog"></div>
+    <div id="debugBox" style="margin-top:12px;background:#0D0628;border:2px solid rgba(123,47,255,.4);border-radius:12px;padding:12px;font-family:monospace;font-size:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="color:var(--electric-purple);font-weight:700">🔍 Debug Log <span style="color:var(--light-purple);font-size:10px">v4.1</span></span>
+            <button onclick="copyLog()" style="background:var(--electric-purple);color:white;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer">📋 Copy</button>
+        </div>
+        <div id="debugLog" style="max-height:160px;overflow-y:auto;-webkit-overflow-scrolling:touch;user-select:text;-webkit-user-select:text"></div>
     </div>
 
     <!-- Binder Info Bar -->
@@ -474,6 +477,14 @@ dz.addEventListener('drop',function(ev){
 
 function handleUpload(inp){ if(inp && inp.files && inp.files[0]) processFile(inp.files[0]); }
 
+function copyLog() {
+    var text = document.getElementById('debugLog').innerText;
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(function(){ showToast('Log copied!'); });
+    } else {
+        prompt('Copy this log:', text);
+    }
+}
 function dbg(msg) {
     var log = document.getElementById('debugLog');
     if (!log) return;
