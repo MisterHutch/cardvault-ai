@@ -257,15 +257,14 @@ def scanner_page():
         <button class="btn btn-ghost" id="modeSingle" onclick="setMode('single')">🃏 Single Card</button>
     </div>
 
-    <!-- Upload Zone -->
-    <div class="upload-zone" id="dropZone" style="position:relative">
+    <!-- Upload Zone — label wrapping is most reliable on iOS Safari -->
+    <input type="file" id="fileInput" accept="image/*"
+           style="display:none" onchange="handleUpload(this)">
+    <label for="fileInput" class="upload-zone" id="dropZone">
         <div class="upload-icon" id="uploadIcon">📖</div>
-        <div class="upload-title" id="uploadTitle">Drop Your Binder Page Here</div>
+        <div class="upload-title" id="uploadTitle">Tap to Scan Binder Page</div>
         <div class="upload-sub" id="uploadSub">Full 3×3 page photo · JPG, PNG, WEBP up to 16MB</div>
-        <input type="file" id="fileInput" accept="image/*"
-               style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0"
-               onchange="handleUpload(this)">
-    </div>
+    </label>
 
     <!-- Binder Info Bar -->
     <div id="binderInfo" style="display:none;margin-top:16px">
@@ -389,7 +388,7 @@ function setMode(mode) {
     document.getElementById('modeBinder').className = isBinder ? 'btn btn-primary' : 'btn btn-ghost';
     document.getElementById('modeSingle').className = isBinder ? 'btn btn-ghost' : 'btn btn-primary';
     document.getElementById('uploadIcon').textContent = isBinder ? '📖' : '🃏';
-    document.getElementById('uploadTitle').textContent = isBinder ? 'Drop Your Binder Page Here' : 'Drop Your Card Photo Here';
+    document.getElementById('uploadTitle').textContent = isBinder ? 'Tap to Scan Binder Page' : 'Tap to Scan a Card';
     document.getElementById('uploadSub').textContent = isBinder ? 'Full 3×3 page photo · JPG, PNG, WEBP up to 16MB' : 'Single card · JPG, PNG, WEBP up to 16MB';
     document.getElementById('binderInfo').style.display = isBinder ? 'block' : 'none';
     resetScanner();

@@ -114,6 +114,7 @@ body {
 
 /* ── Upload zone ──────────────────────────────────────────── */
 .upload-zone {
+  display: block;
   position: relative;
   border: 4px dashed var(--electric-purple);
   border-radius: var(--radius-chunky);
