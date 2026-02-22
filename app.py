@@ -257,14 +257,18 @@ def scanner_page():
         <button class="btn btn-ghost" id="modeSingle" onclick="setMode('single')">🃏 Single Card</button>
     </div>
 
-    <!-- Upload Zone: opacity:0 overlay fires reliably on iOS Safari -->
-    <div class="upload-zone" id="dropZone" style="position:relative;overflow:hidden">
+    <!-- Upload Zone with explicit buttons — most reliable on iOS Safari -->
+    <div class="upload-zone" id="dropZone">
         <div class="upload-icon" id="uploadIcon">📖</div>
-        <div class="upload-title" id="uploadTitle">Tap to Scan Binder Page</div>
-        <div class="upload-sub" id="uploadSub">Take a photo or choose from library</div>
-        <input type="file" id="fileInput" accept="image/*"
-               style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px;z-index:10">
+        <div class="upload-title" id="uploadTitle">Scan Binder Page</div>
+        <div class="upload-sub" id="uploadSub">Choose how to add your photo</div>
+        <div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap">
+            <button type="button" class="btn btn-primary" id="btnCamera" onclick="openFileInput('camera')">📷 Take Photo</button>
+            <button type="button" class="btn btn-ghost" id="btnLibrary" onclick="openFileInput('library')">🖼️ Library</button>
+        </div>
     </div>
+    <!-- File input lives outside any container — nothing to interfere with it -->
+    <input type="file" id="fileInput" accept="image/*" style="display:none">
 
     <!-- Batch Progress Panel -->
     <div id="batchProgress" style="display:none;margin-top:16px">
@@ -435,11 +439,9 @@ function setMode(mode) {
     document.getElementById('modeBinder').className = isBinder ? 'btn btn-primary' : 'btn btn-ghost';
     document.getElementById('modeSingle').className = isBinder ? 'btn btn-ghost' : 'btn btn-primary';
     document.getElementById('uploadIcon').textContent = isBinder ? '📖' : '🃏';
-    document.getElementById('uploadTitle').textContent = isBinder ? 'Tap to Scan Binder Pages' : 'Tap to Scan a Card';
-    document.getElementById('uploadSub').textContent = isBinder ? 'Select one or multiple pages from your library' : 'Single card · take photo or choose from library';
+    document.getElementById('uploadTitle').textContent = isBinder ? 'Scan Binder Page' : 'Scan a Card';
+    document.getElementById('uploadSub').textContent = isBinder ? 'Take a photo or pick from library' : 'Take a photo or pick from library';
     document.getElementById('binderInfo').style.display = isBinder ? 'block' : 'none';
-    // Enable multi-select for binder mode
-    fileInput.multiple = isBinder;
     resetScanner();
 }
 
@@ -478,6 +480,20 @@ dz.addEventListener('drop',function(ev){
 
 function handleUpload(inp){ if(inp && inp.files && inp.files[0]) processFile(inp.files[0]); }
 
+function openFileInput(mode) {
+    dbg('openFileInput: mode=' + mode);
+    // Remove any previous attributes
+    fileInput.removeAttribute('capture');
+    fileInput.removeAttribute('multiple');
+    if (mode === 'camera') {
+        fileInput.setAttribute('capture', 'environment');
+    }
+    if (currentMode === 'binder' && mode === 'library') {
+        fileInput.multiple = true;
+    }
+    fileInput.click();
+    dbg('fileInput.click() called');
+}
 function copyLog() {
     var text = document.getElementById('debugLog').innerText;
     if (navigator.clipboard) {
