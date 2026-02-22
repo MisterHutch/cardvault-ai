@@ -1147,6 +1147,33 @@ def settings_page():
 # API ROUTES — Detection & Identification
 # ============================================================================
 
+@app.route("/api/debug-identify", methods=["POST"])
+def api_debug_identify():
+    """Debug: returns raw Claude response to diagnose identify failures."""
+    import anthropic, base64 as b64mod
+    api_key = os.environ.get("ANTHROPIC_API_KEY","")
+    if not api_key:
+        return jsonify({"error": "No ANTHROPIC_API_KEY set"})
+    if "image" not in request.files:
+        return jsonify({"error": "No image"})
+    f = request.files["image"]
+    img_bytes = f.read()
+    img_b64 = b64mod.standard_b64encode(img_bytes).decode()
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        resp = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=300,
+            messages=[{"role":"user","content":[
+                {"type":"image","source":{"type":"base64","media_type":"image/jpeg","data":img_b64}},
+                {"type":"text","text":"What player is on this sports card? Reply in one sentence."}
+            ]}]
+        )
+        raw = resp.content[0].text
+        return jsonify({"raw": raw, "model": "claude-sonnet-4-20250514", "img_size": len(img_bytes)})
+    except Exception as e:
+        return jsonify({"error": str(e), "type": type(e).__name__})
+
 @app.route("/api/detect", methods=["POST"])
 def api_detect():
     """Detect cards in a binder page image using OpenCV."""
