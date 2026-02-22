@@ -247,11 +247,13 @@ def scanner_page():
     </div>
 
     <!-- Upload Zone -->
-    <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+    <div class="upload-zone" id="dropZone" style="position:relative">
         <div class="upload-icon" id="uploadIcon">📖</div>
         <div class="upload-title" id="uploadTitle">Drop Your Binder Page Here</div>
         <div class="upload-sub" id="uploadSub">Full 3×3 page photo · JPG, PNG, WEBP up to 16MB</div>
-        <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleUpload(this)">
+        <input type="file" id="fileInput" accept="image/*"
+               style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0"
+               onchange="handleUpload(this)">
     </div>
 
     <!-- Binder Info Bar -->
@@ -384,11 +386,20 @@ function setMode(mode) {
 
 // ── Drag & drop ────────────────────────────────────────────────────────────
 var dz = document.getElementById('dropZone');
-['dragenter','dragover'].forEach(function(e){dz.addEventListener(e,function(ev){ev.preventDefault();dz.classList.add('dragover')})});
-['dragleave','drop'].forEach(function(e){dz.addEventListener(e,function(ev){ev.preventDefault();dz.classList.remove('dragover')})});
-dz.addEventListener('drop',function(ev){ev.preventDefault();dz.classList.remove('dragover');if(ev.dataTransfer.files[0])processFile(ev.dataTransfer.files[0])});
+['dragenter','dragover'].forEach(function(e){
+    dz.addEventListener(e,function(ev){ev.preventDefault();ev.stopPropagation();dz.classList.add('dragover')});
+});
+['dragleave','drop'].forEach(function(e){
+    dz.addEventListener(e,function(ev){ev.preventDefault();ev.stopPropagation();dz.classList.remove('dragover')});
+});
+dz.addEventListener('drop',function(ev){
+    ev.preventDefault();ev.stopPropagation();
+    dz.classList.remove('dragover');
+    var f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+    if(f) processFile(f);
+});
 
-function handleUpload(inp){if(inp.files[0])processFile(inp.files[0])}
+function handleUpload(inp){ if(inp && inp.files && inp.files[0]) processFile(inp.files[0]); }
 
 function processFile(file) {
     currentFile = file;
