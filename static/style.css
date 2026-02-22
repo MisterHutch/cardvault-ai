@@ -116,6 +116,7 @@ body {
 .upload-zone {
   display: block;
   position: relative;
+  overflow: hidden;
   border: 4px dashed var(--electric-purple);
   border-radius: var(--radius-chunky);
   padding: 48px; text-align: center; cursor: pointer;

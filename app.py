@@ -257,13 +257,14 @@ def scanner_page():
         <button class="btn btn-ghost" id="modeSingle" onclick="setMode('single')">🃏 Single Card</button>
     </div>
 
-    <!-- Upload Zone — label wrapping is most reliable on iOS Safari -->
-    <input type="file" id="fileInput" accept="image/*" style="display:none">
-    <label for="fileInput" class="upload-zone" id="dropZone">
+    <!-- Upload Zone: opacity:0 overlay fires reliably on iOS Safari -->
+    <div class="upload-zone" id="dropZone" style="position:relative;overflow:hidden">
         <div class="upload-icon" id="uploadIcon">📖</div>
         <div class="upload-title" id="uploadTitle">Tap to Scan Binder Page</div>
         <div class="upload-sub" id="uploadSub">Take a photo or choose from library</div>
-    </label>
+        <input type="file" id="fileInput" accept="image/*"
+               style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px;z-index:10">
+    </div>
 
     <!-- Batch Progress Panel -->
     <div id="batchProgress" style="display:none;margin-top:16px">
