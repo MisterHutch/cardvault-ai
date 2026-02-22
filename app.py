@@ -258,7 +258,7 @@ def scanner_page():
     </div>
 
     <!-- Upload Zone — label wrapping is most reliable on iOS Safari -->
-    <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none">
+    <input type="file" id="fileInput" accept="image/*" style="display:none">
     <label for="fileInput" class="upload-zone" id="dropZone">
         <div class="upload-icon" id="uploadIcon">📖</div>
         <div class="upload-title" id="uploadTitle">Tap to Scan Binder Page</div>
