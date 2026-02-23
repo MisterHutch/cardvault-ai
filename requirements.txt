@@ -16,3 +16,6 @@ anthropic>=0.40.0
 
 # Utilities
 python-dotenv>=1.0.0
+
+# Database — MySQL support (Railway production)
+PyMySQL>=1.1.0
