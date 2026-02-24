@@ -213,6 +213,9 @@ BASE_HTML = """<!DOCTYPE html>
     <a href="/booklets" class="nav-item %(nav_book)s">
       <span class="nav-icon">📖</span>Booklets
     </a>
+    <a href="/portfolio" class="nav-item %(nav_port)s">
+      <span class="nav-icon">📊</span>Portfolio
+    </a>
     <a href="/settings" class="nav-item %(nav_set)s">
       <span class="nav-icon">⚙️</span>Settings
     </a>
@@ -234,6 +237,7 @@ def render(title, content, scripts="", active="scan"):
     html = html.replace("%(nav_scan)s",  "active" if active == "scan"       else "")
     html = html.replace("%(nav_coll)s",  "active" if active == "collection" else "")
     html = html.replace("%(nav_book)s",  "active" if active == "booklets"   else "")
+    html = html.replace("%(nav_port)s",  "active" if active == "portfolio"  else "")
     html = html.replace("%(nav_set)s",   "active" if active == "settings"   else "")
     return html
 
@@ -948,6 +952,252 @@ def collection_page():
     {stats_html}{cards_html}
     """
     return render("Collection", content, active="collection")
+
+
+@app.route("/portfolio")
+def portfolio_page():
+    conn = get_db()
+
+    # Core stats
+    total_value  = conn.execute("SELECT COALESCE(SUM(estimated_value),0) FROM cards").fetchone()[0]
+    total_cards  = conn.execute("SELECT COUNT(*) FROM cards").fetchone()[0]
+    rc_count     = conn.execute("SELECT COUNT(*) FROM cards WHERE is_rookie=1").fetchone()[0]
+    auto_count   = conn.execute("SELECT COUNT(*) FROM cards WHERE is_auto=1").fetchone()[0]
+    numbered_count = conn.execute("SELECT COUNT(*) FROM cards WHERE is_numbered=1").fetchone()[0]
+    avg_value    = (total_value / total_cards) if total_cards else 0
+
+    # Top 10 cards by value
+    top10 = conn.execute(
+        "SELECT player_name, year, set_name, parallel, estimated_value, is_rookie, is_auto, is_numbered, numbering "
+        "FROM cards ORDER BY estimated_value DESC LIMIT 10"
+    ).fetchall()
+
+    # Sport breakdown
+    sports = conn.execute(
+        "SELECT sport, COUNT(*) as cnt, COALESCE(SUM(estimated_value),0) as val "
+        "FROM cards GROUP BY sport ORDER BY val DESC"
+    ).fetchall()
+
+    # Brand breakdown
+    brands = conn.execute(
+        "SELECT brand, COUNT(*) as cnt, COALESCE(SUM(estimated_value),0) as val "
+        "FROM cards GROUP BY brand ORDER BY val DESC LIMIT 8"
+    ).fetchall()
+
+    # Grading candidates (raw value > $50)
+    grade_candidates = conn.execute(
+        "SELECT player_name, year, set_name, parallel, estimated_value, is_rookie "
+        "FROM cards WHERE estimated_value > 50 AND (grading_company IS NULL OR grading_company = '') "
+        "ORDER BY estimated_value DESC LIMIT 20"
+    ).fetchall()
+
+    # Booklet value summary
+    booklets = conn.execute(
+        "SELECT booklet_name, COUNT(*) as cnt, COALESCE(SUM(estimated_value),0) as val "
+        "FROM cards WHERE booklet_name IS NOT NULL AND booklet_name != '' "
+        "GROUP BY booklet_name ORDER BY val DESC LIMIT 10"
+    ).fetchall()
+
+    conn.close()
+
+    # Build chart data JSON strings
+    import json
+    sports_labels = json.dumps([s["sport"] or "Unknown" for s in sports])
+    sports_values = json.dumps([round(s["val"], 2) for s in sports])
+    sports_counts = json.dumps([s["cnt"] for s in sports])
+    brand_labels  = json.dumps([b["brand"] or "Unknown" for b in brands])
+    brand_values  = json.dumps([round(b["val"], 2) for b in brands])
+
+    # Top-10 HTML rows
+    top10_rows = ""
+    for i, c in enumerate(top10, 1):
+        tags = ""
+        if c["is_rookie"]:  tags += '<span class="tag tag-rc">RC</span>'
+        if c["is_auto"]:    tags += '<span class="tag tag-auto">Auto</span>'
+        if c["is_numbered"] and c["numbering"]: tags += f'<span class="tag tag-numbered">{c["numbering"]}</span>'
+        if c["parallel"] and c["parallel"] != "Base": tags += f'<span class="tag tag-parallel">{c["parallel"]}</span>'
+        pct = round((c["estimated_value"] / top10[0]["estimated_value"]) * 100) if top10 and top10[0]["estimated_value"] else 0
+        top10_rows += f"""
+        <div class="port-rank-row">
+          <div class="rank-num">#{i}</div>
+          <div class="rank-info">
+            <div class="rank-player">{c["player_name"]}</div>
+            <div class="rank-set">{c["year"]} {c["set_name"]}</div>
+            <div style="margin-top:6px">{tags}</div>
+          </div>
+          <div class="rank-right">
+            <div class="rank-value">${c["estimated_value"]:,.0f}</div>
+            <div class="rank-bar-wrap"><div class="rank-bar" style="width:{pct}%"></div></div>
+          </div>
+        </div>"""
+
+    # Grading candidates HTML
+    grade_rows = ""
+    if grade_candidates:
+        for c in grade_candidates:
+            grade_rows += f"""
+            <div class="grade-row">
+              <div class="grade-info">
+                <div class="grade-player">{c["player_name"]}</div>
+                <div class="grade-set">{c["year"]} {c["set_name"]} — {c["parallel"]}</div>
+              </div>
+              <div class="grade-value">${c["estimated_value"]:,.0f}</div>
+              <div class="grade-rec">{'🔑 PSA it' if c["estimated_value"] > 200 else '⚡ Consider grading'}</div>
+            </div>"""
+    else:
+        grade_rows = '<p style="color:var(--muted);font-size:14px;text-align:center;padding:20px">No cards over $50 yet — keep scanning.</p>'
+
+    # Booklets HTML
+    booklet_rows = ""
+    if booklets:
+        for b in booklets:
+            booklet_rows += f"""
+            <div class="booklet-row">
+              <div>
+                <div style="font-weight:600;font-size:14px">📖 {b["booklet_name"]}</div>
+                <div style="color:var(--muted);font-size:12px;margin-top:2px">{b["cnt"]} cards</div>
+              </div>
+              <div style="font-size:1.1rem;font-weight:700;color:var(--slime-green)">${b["val"]:,.0f}</div>
+            </div>"""
+    else:
+        booklet_rows = '<p style="color:var(--muted);font-size:14px;text-align:center;padding:20px">No booklets yet.</p>'
+
+    empty_state = ""
+    if total_cards == 0:
+        empty_state = """
+        <div style="text-align:center;padding:60px 20px;color:var(--muted)">
+          <div style="font-size:3rem;margin-bottom:16px">📊</div>
+          <div style="font-size:1.1rem;font-weight:600;margin-bottom:8px;color:var(--text)">Portfolio is empty</div>
+          <p style="font-size:14px">Scan some cards to see your portfolio dashboard.</p>
+          <a href="/" class="btn btn-primary" style="margin-top:20px;display:inline-block">📸 Start Scanning</a>
+        </div>"""
+
+    content = f"""
+    <h1 class="page-title">Portfolio Dashboard</h1>
+    <p class="page-sub">Your collection at a glance — value, highlights, and what to grade.</p>
+
+    {empty_state}
+
+    <!-- KPI Row -->
+    <div class="port-kpi-row">
+      <div class="port-kpi">
+        <div class="port-kpi-label">Total Value</div>
+        <div class="port-kpi-value" style="color:var(--slime-green)">${total_value:,.2f}</div>
+      </div>
+      <div class="port-kpi">
+        <div class="port-kpi-label">Cards</div>
+        <div class="port-kpi-value">{total_cards:,}</div>
+      </div>
+      <div class="port-kpi">
+        <div class="port-kpi-label">Avg Value</div>
+        <div class="port-kpi-value">${avg_value:,.2f}</div>
+      </div>
+      <div class="port-kpi">
+        <div class="port-kpi-label">Rookies</div>
+        <div class="port-kpi-value" style="color:var(--turbo-orange)">{rc_count}</div>
+      </div>
+      <div class="port-kpi">
+        <div class="port-kpi-label">Autos</div>
+        <div class="port-kpi-value" style="color:var(--electric-purple)">{auto_count}</div>
+      </div>
+      <div class="port-kpi">
+        <div class="port-kpi-label">Numbered</div>
+        <div class="port-kpi-value" style="color:var(--radical-yellow)">{numbered_count}</div>
+      </div>
+    </div>
+
+    <!-- Charts row -->
+    <div class="port-charts-row">
+      <div class="panel">
+        <div class="panel-title">💰 Value by Sport</div>
+        <canvas id="chartSport" height="220"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-title">🏷️ Value by Brand</div>
+        <canvas id="chartBrand" height="220"></canvas>
+      </div>
+    </div>
+
+    <!-- Top 10 -->
+    <div class="panel">
+      <div class="panel-title">🏆 Top 10 Cards by Value</div>
+      <div class="port-rank-list">
+        {top10_rows if top10_rows else '<p style="color:var(--muted);font-size:14px;padding:20px;text-align:center">No cards yet.</p>'}
+      </div>
+    </div>
+
+    <!-- Grading candidates -->
+    <div class="panel">
+      <div class="panel-title">🎯 Grading Candidates <span style="font-size:13px;color:var(--muted);font-weight:400">(raw value &gt; $50)</span></div>
+      <div class="grade-list">{grade_rows}</div>
+    </div>
+
+    <!-- Booklets -->
+    <div class="panel">
+      <div class="panel-title">📖 Booklets by Value</div>
+      <div class="booklet-list">{booklet_rows}</div>
+    </div>
+    """
+
+    scripts = f"""
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+    Chart.defaults.color = 'rgba(255,255,255,0.5)';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.08)';
+    const PURPLE = '#7B2FFF';
+    const GOLD   = '#F5C842';
+    const GREEN  = '#39FF6A';
+    const ORANGE = '#FF6B35';
+    const COLORS = [PURPLE, GOLD, GREEN, ORANGE, '#FF4D9E', '#00D4FF', '#FF8C42', '#A855F7'];
+
+    // Sport chart
+    var sportCtx = document.getElementById('chartSport');
+    if(sportCtx) {{
+      new Chart(sportCtx, {{
+        type: 'doughnut',
+        data: {{
+          labels: {sports_labels},
+          datasets: [{{ data: {sports_values}, backgroundColor: COLORS, borderWidth: 2, borderColor: '#070B14' }}]
+        }},
+        options: {{
+          responsive: true,
+          plugins: {{
+            legend: {{ position: 'bottom', labels: {{ padding: 16, font: {{ size: 12 }} }} }},
+            tooltip: {{ callbacks: {{ label: function(c) {{ return ' $' + c.parsed.toLocaleString(); }} }} }}
+          }}
+        }}
+      }});
+    }}
+
+    // Brand chart
+    var brandCtx = document.getElementById('chartBrand');
+    if(brandCtx) {{
+      new Chart(brandCtx, {{
+        type: 'bar',
+        data: {{
+          labels: {brand_labels},
+          datasets: [{{
+            label: 'Value ($)',
+            data: {brand_values},
+            backgroundColor: PURPLE,
+            borderRadius: 6,
+            borderSkipped: false
+          }}]
+        }},
+        options: {{
+          responsive: true,
+          plugins: {{ legend: {{ display: false }} }},
+          scales: {{
+            y: {{ ticks: {{ callback: function(v) {{ return '$' + v.toLocaleString(); }} }} }},
+            x: {{ ticks: {{ font: {{ size: 11 }} }} }}
+          }}
+        }}
+      }});
+    }}
+    </script>
+    """
+
+    return render("Portfolio", content, scripts=scripts, active="portfolio")
 
 
 @app.route("/card/<card_id>")

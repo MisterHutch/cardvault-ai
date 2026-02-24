@@ -817,3 +817,138 @@ body {
 
 /* ── Selection ─────────────────────────────────────────────── */
 ::selection { background: var(--gold-dim); color: var(--text); }
+
+/* ── Portfolio Dashboard ────────────────────────────────────── */
+.port-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 480px) {
+  .port-kpi-row { grid-template-columns: repeat(2, 1fr); }
+}
+
+.port-kpi {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  text-align: center;
+}
+
+.port-kpi-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.port-kpi-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+}
+
+.port-charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 600px) {
+  .port-charts-row { grid-template-columns: 1fr; }
+}
+
+/* Top 10 ranking */
+.port-rank-list { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+
+.port-rank-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(255,255,255,0.02);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.rank-num {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--electric-purple);
+  width: 32px;
+  flex-shrink: 0;
+}
+
+.rank-info { flex: 1; min-width: 0; }
+
+.rank-player {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rank-set { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+.rank-right { text-align: right; flex-shrink: 0; }
+
+.rank-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--slime-green);
+  margin-bottom: 6px;
+}
+
+.rank-bar-wrap {
+  height: 4px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 2px;
+  width: 80px;
+}
+
+.rank-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--electric-purple), var(--slime-green));
+  border-radius: 2px;
+  transition: width 1s ease;
+}
+
+/* Grading candidates */
+.grade-list { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+
+.grade-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(255,232,24,0.04);
+  border: 1px solid rgba(255,232,24,0.15);
+  border-radius: 10px;
+}
+
+.grade-info { flex: 1; }
+.grade-player { font-size: 14px; font-weight: 700; }
+.grade-set { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.grade-value { font-size: 15px; font-weight: 700; color: var(--radical-yellow); flex-shrink: 0; }
+.grade-rec { font-size: 12px; color: var(--muted); flex-shrink: 0; margin-left: 8px; }
+
+/* Booklets */
+.booklet-list { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+
+.booklet-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
