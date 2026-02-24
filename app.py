@@ -32,6 +32,7 @@ from card_value_engine import (
     Sport, ConfidenceLevel, MockDataFactory
 )
 from ebay_integration import create_ebay_fetcher, MarketDataFetcher
+from model_router import prescreen_image, route_identify, MODEL_SMART, MODEL_FAST
 
 # Detection & identification (lazy-loaded — graceful when deps missing)
 _detector = None
@@ -1456,7 +1457,7 @@ def api_detect():
 
 @app.route("/api/identify", methods=["POST"])
 def api_identify():
-    """Identify a single card image using Claude Vision."""
+    """Identify a single card image using Claude Vision — with model routing."""
     identifier = get_identifier()
     if not identifier:
         return jsonify({"error": "Claude Vision not available — set ANTHROPIC_API_KEY"}), 200
@@ -1473,7 +1474,23 @@ def api_identify():
     f.save(str(filepath))
 
     try:
-        result = identifier.identify_card(str(filepath))
+        # Tier 1: Haiku prescreen — is this a usable card image?
+        screen = prescreen_image(identifier.client, str(filepath))
+        if not screen.get("is_card", True):
+            return jsonify({"error": "Image does not appear to be a sports card.", "prescreen": screen}), 200
+        if not screen.get("usable", True):
+            return jsonify({"error": f"Image not usable: {screen.get('reason', 'too blurry or unclear')}", "prescreen": screen}), 200
+
+        # Tier 2: Sonnet full identification
+        result = identifier.identify_card(str(filepath), model=MODEL_SMART)
+
+        # Tier 3: If confidence is low, retry with best model
+        if result.confidence < 0.55:
+            better_model = route_identify(result.confidence, attempt=2)
+            if better_model != MODEL_SMART:
+                result = identifier.identify_card(str(filepath), model=better_model)
+                result.identification_notes = (result.identification_notes or "") + " [escalated]"
+
         return jsonify(result.to_dict())
     except Exception as e:
         return jsonify({"error": str(e)}), 400
@@ -1498,7 +1515,25 @@ def api_identify_batch():
             })
             continue
         try:
-            ident = identifier.identify_card(str(filepath))
+            # Haiku prescreen — skip empty slots / non-cards fast
+            screen = prescreen_image(identifier.client, str(filepath))
+            if not screen.get("is_card", True) or not screen.get("usable", True):
+                results.append({
+                    "player_name": "Empty Slot", "confidence": 0,
+                    "error": screen.get("reason", "Not a card"),
+                    "filename": card_info["filename"], "row": card_info.get("row",0), "col": card_info.get("col",0)
+                })
+                continue
+
+            # Sonnet full ID
+            ident = identifier.identify_card(str(filepath), model=MODEL_SMART)
+
+            # Escalate if low confidence
+            if ident.confidence < 0.55:
+                better = route_identify(ident.confidence, attempt=2)
+                if better != MODEL_SMART:
+                    ident = identifier.identify_card(str(filepath), model=better)
+
             result = ident.to_dict()
             result["filename"] = card_info["filename"]
             result["row"] = card_info.get("row", 0)

@@ -323,16 +323,19 @@ Now analyze the card image:"""
         result['confidence'] = 0.3
         raise json.JSONDecodeError(f"Could not parse JSON from: {raw_text[:100]}", raw_text, 0)
     
-    def identify_card(self, image_path: str) -> CardIdentification:
+    def identify_card(self, image_path: str, model: str = None) -> CardIdentification:
         """
         Identify a single card from an image file.
         
         Args:
             image_path: Path to the card image
+            model: Optional model override (defaults to self.model)
             
         Returns:
             CardIdentification object with results
         """
+        if model:
+            self.model = model
         image_data, media_type = self._encode_image(image_path)
         return self.identify_card_from_base64(image_data, media_type)
     
