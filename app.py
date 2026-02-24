@@ -1906,6 +1906,48 @@ def api_export():
 
 
 # ============================================================================
+# EBAY ACCOUNT DELETION NOTIFICATION (required for production keyset)
+# https://developer.ebay.com/marketplace-account-deletion
+# ============================================================================
+
+@app.route("/api/ebay/account-deletion", methods=["GET", "POST"])
+def ebay_account_deletion():
+    """
+    eBay Marketplace Account Deletion / Closure Notification endpoint.
+    GET  → challenge verification (must respond with SHA-256 hash)
+    POST → account deletion notification (log and return 200)
+    """
+    import hashlib, json as _json
+
+    if request.method == "GET":
+        challenge_code = request.args.get("challenge_code", "")
+        verification_token = os.environ.get("EBAY_VERIFICATION_TOKEN", "")
+        endpoint_url = os.environ.get(
+            "EBAY_NOTIFICATION_ENDPOINT",
+            "https://cardvault-ai-production-9bab.up.railway.app/api/ebay/account-deletion"
+        )
+
+        if not challenge_code:
+            return jsonify({"error": "missing challenge_code"}), 400
+
+        # eBay spec: SHA-256(challengeCode + verificationToken + endpointURL)
+        raw = challenge_code + verification_token + endpoint_url
+        challenge_response = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+        return jsonify({"challengeResponse": challenge_response}), 200
+
+    # POST — account deletion notification
+    try:
+        payload = request.get_json(silent=True) or {}
+        user_id = payload.get("data", {}).get("userId", "unknown")
+        print(f"[eBay] Account deletion notification received for userId={user_id}")
+    except Exception as e:
+        print(f"[eBay] Account deletion parse error: {e}")
+
+    return "", 200
+
+
+# ============================================================================
 # HEALTH CHECK (Docker / deployment)
 # ============================================================================
 
