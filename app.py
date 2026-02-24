@@ -31,7 +31,7 @@ from card_value_engine import (
     CardValueEstimator, CardAttributes, CardCondition,
     Sport, ConfidenceLevel, MockDataFactory
 )
-from ebay_integration import create_ebay_fetcher, MarketDataFetcher
+from ebay_integration import create_ebay_fetcher, create_ebay_fetcher_appid_only, MarketDataFetcher
 from model_router import prescreen_image, route_identify, MODEL_SMART, MODEL_FAST, estimate_cost
 
 # Detection & identification (lazy-loaded — graceful when deps missing)
@@ -138,10 +138,13 @@ def log_cost(operation: str, model: str, input_tok: int, output_tok: int,
 # eBay integration
 _cid = os.environ.get("EBAY_CLIENT_ID", "")
 _csec = os.environ.get("EBAY_CLIENT_SECRET", "")
+_sandbox = os.environ.get("EBAY_SANDBOX", "true").lower() == "true"
 if _cid and _csec:
-    _sandbox = os.environ.get("EBAY_SANDBOX", "true").lower() == "true"
     market_fetcher = create_ebay_fetcher(_cid, _csec, _sandbox)
-    print("[CardVault] eBay connected (%s)" % ("sandbox" if _sandbox else "production"))
+    print("[CardVault] eBay connected via OAuth (%s)" % ("sandbox" if _sandbox else "production"))
+elif _cid:
+    market_fetcher = create_ebay_fetcher_appid_only(_cid, sandbox=_sandbox)
+    print("[CardVault] eBay connected via Finding API — App ID only (%s)" % ("sandbox" if _sandbox else "production"))
 else:
     market_fetcher = MarketDataFetcher()
     print("[CardVault] No eBay keys — mock data mode")

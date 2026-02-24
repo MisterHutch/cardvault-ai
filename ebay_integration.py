@@ -30,7 +30,7 @@ from card_value_engine import MarketDataPoint, CardAttributes, CardCondition
 class EbayConfig:
     """eBay API configuration."""
     client_id: str
-    client_secret: str
+    client_secret: str = ""   # Optional — Finding API works with App ID only
     sandbox: bool = True
     
     @property
@@ -194,8 +194,11 @@ class EbayMarketFetcher:
             # Build search query
             query = self._build_query(card)
             
-            # Try Browse API first (better data), fall back to Finding API
-            results = self._search_browse_api(query, limit)
+            # Browse API needs OAuth (client_secret). Finding API only needs App ID.
+            # If no secret, skip straight to Finding API.
+            results = []
+            if self.config.client_secret:
+                results = self._search_browse_api(query, limit)
             
             if not results:
                 results = self._search_finding_api(query, limit)
@@ -420,12 +423,19 @@ class MarketDataFetcher:
 
 def create_ebay_fetcher(client_id: str, client_secret: str, 
                         sandbox: bool = True) -> MarketDataFetcher:
-    """Quick setup for eBay integration."""
+    """Quick setup for eBay integration (Browse API + Finding API)."""
     config = EbayConfig(
         client_id=client_id,
         client_secret=client_secret,
         sandbox=sandbox,
     )
+    return MarketDataFetcher(ebay_config=config)
+
+
+def create_ebay_fetcher_appid_only(client_id: str,
+                                   sandbox: bool = False) -> MarketDataFetcher:
+    """Finding API only — no client secret needed. Uses sold comp search."""
+    config = EbayConfig(client_id=client_id, sandbox=sandbox)
     return MarketDataFetcher(ebay_config=config)
 
 
