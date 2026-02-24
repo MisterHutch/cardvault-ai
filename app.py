@@ -598,7 +598,8 @@ function resetScanner() {
     currentFile = null; detectedCards = []; identifiedCards = [];
     batchFiles = []; batchResults = []; batchCurrent = 0;
     dz.style.display = 'block';
-    fileInput.value = '';
+    if(cameraInput) cameraInput.value = '';
+    if(libraryInput) libraryInput.value = '';
     document.getElementById('binderResults').style.display = 'none';
     document.getElementById('singleResults').style.display = 'none';
     document.getElementById('cardGrid').style.display = 'none';
@@ -936,7 +937,7 @@ function saveCard(){
 // Init
 dbg('Scanner JS loaded. Setting binder mode...');
 setMode('binder');
-dbg('Ready. fileInput=' + (fileInput ? 'found' : 'MISSING'));
+dbg('Ready. cameraInput=' + (cameraInput ? 'found' : 'MISSING') + ' libraryInput=' + (libraryInput ? 'found' : 'MISSING'));
 </script>"""
 
     return render("Scanner", content, scripts, "scan")
