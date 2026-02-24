@@ -892,11 +892,20 @@ function getEstimate(){
         if(data.parallel)tags+='<span class="tag tag-parallel">'+data.parallel+'</span>';
         if(data.serial_number)tags+='<span class="tag tag-numbered">'+data.serial_number+'</span>';
         var mrows='';
-        if(res.multipliers){for(var k in res.multipliers){if(k[0]!='_')mrows+='<tr><td>'+k+'</td><td class="mult-val">'+res.multipliers[k]+'x</td></tr>';}
-        if(res.multipliers._cap_applied)mrows+='<tr><td style="color:var(--turbo-orange)">Cap applied (was '+res.multipliers._uncapped+'x)</td><td class="mult-val">'+res.multipliers._total+'x</td></tr>';}
+        if(res.multipliers){
+            if(res.multipliers.note){
+                mrows='<tr><td colspan="2" style="color:rgba(255,255,255,.4);font-style:italic">'+res.multipliers.note+'</td></tr>';
+            } else {
+                for(var k in res.multipliers){if(k[0]!='_')mrows+='<tr><td>'+k+'</td><td class="mult-val">'+res.multipliers[k]+'x</td></tr>';}
+                if(res.multipliers._cap_applied)mrows+='<tr><td style="color:var(--turbo-orange)">Cap applied (was '+res.multipliers._uncapped+'x)</td><td class="mult-val">'+res.multipliers._total+'x</td></tr>';
+            }
+        }
         var src='';
+        var dataSourceBanner = res.data_source==='ebay_sold'
+            ? '<div style="margin-bottom:12px;padding:8px 12px;background:rgba(57,255,20,.08);border:1px solid rgba(57,255,20,.3);border-radius:8px;font-size:12px;color:var(--slime-green)">✅ Live eBay sold comps</div>'
+            : '<div style="margin-bottom:12px;padding:8px 12px;background:rgba(255,200,0,.08);border:1px solid rgba(255,200,0,.3);border-radius:8px;font-size:12px;color:var(--radical-yellow)">⚠️ Estimated values — eBay comps unavailable right now</div>';
         if(res.sources&&res.sources.length){
-            src='<div style="font-family:Lilita One,cursive;font-size:15px;margin-bottom:10px">📦 Sold Comps</div>';
+            src=dataSourceBanner+'<div style="font-family:Lilita One,cursive;font-size:15px;margin-bottom:10px">📦 Sold Comps</div>';
             res.sources.forEach(function(s){
                 var img=s.image_url?'<img src="'+s.image_url+'" style="width:56px;height:72px;object-fit:cover;border-radius:6px;flex-shrink:0;border:1px solid rgba(255,255,255,.1)" onerror="this.style.display=\'none\'">':'<div style="width:56px;height:72px;border-radius:6px;background:rgba(255,255,255,.06);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px">🃏</div>';
                 var link=s.url?'<a href="'+s.url+'" target="_blank" style="color:var(--light-purple);font-size:11px;text-decoration:none">View on eBay \u2192</a>':'';
@@ -1724,6 +1733,7 @@ def api_estimate():
         market_data = market_fetcher.fetch_all(card)
         est = estimator.estimate_value(card, market_data=market_data, use_mock=not market_data)
         sources = [{"source": dp.source, "value": dp.value, "date": dp.date.strftime("%m/%d/%y"), "url": dp.url, "image_url": dp.image_url} for dp in est.data_points[:8]]
+        is_real = any(dp.url and "mock" not in str(dp.url) for dp in est.data_points if dp.source == "ebay_sold")
         return jsonify({
             "estimated_value": est.estimated_value,
             "confidence": est.confidence.value,
@@ -1733,6 +1743,7 @@ def api_estimate():
             "grading_rec": est.grading_recommendation,
             "trend": est.market_trends,
             "sources": sources,
+            "data_source": "ebay_sold" if is_real else "estimated",
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 400
