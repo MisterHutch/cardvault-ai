@@ -307,12 +307,19 @@ def scanner_page():
         <div class="upload-title" id="uploadTitle">Scan Binder Page</div>
         <div class="upload-sub" id="uploadSub">Choose how to add your photo</div>
         <div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap">
-            <button type="button" class="btn btn-primary" id="btnCamera" onclick="openFileInput('camera')">📷 Take Photo</button>
-            <button type="button" class="btn btn-ghost" id="btnLibrary" onclick="openFileInput('library')">🖼️ Library</button>
+            <!-- Overlay inputs inside each button — most reliable on iOS Safari -->
+            <label class="btn btn-primary" id="btnCamera" style="position:relative;overflow:hidden;cursor:pointer">
+                📷 Take Photo
+                <input type="file" id="cameraInput" accept="image/*" capture="environment"
+                       style="position:absolute;top:0;left:0;opacity:0;width:100%;height:100%;font-size:16px;cursor:pointer">
+            </label>
+            <label class="btn btn-ghost" id="btnLibrary" style="position:relative;overflow:hidden;cursor:pointer">
+                🖼️ Library
+                <input type="file" id="libraryInput" accept="image/*"
+                       style="position:absolute;top:0;left:0;opacity:0;width:100%;height:100%;font-size:16px;cursor:pointer">
+            </label>
         </div>
     </div>
-    <!-- File input lives outside any container — nothing to interfere with it -->
-    <input type="file" id="fileInput" accept="image/*" style="opacity:0;position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;font-size:16px">
 
     <!-- Batch Progress Panel -->
     <div id="batchProgress" style="display:none;margin-top:16px">
@@ -486,26 +493,33 @@ function setMode(mode) {
     document.getElementById('uploadTitle').textContent = isBinder ? 'Scan Binder Page' : 'Scan a Card';
     document.getElementById('uploadSub').textContent = isBinder ? 'Take a photo or pick from library' : 'Take a photo or pick from library';
     document.getElementById('binderInfo').style.display = isBinder ? 'block' : 'none';
+    // Allow multi-file in library when binder mode is active
+    if (document.getElementById('libraryInput')) {
+        document.getElementById('libraryInput').multiple = isBinder;
+    }
     resetScanner();
 }
 
-// ── File input — use addEventListener (more reliable than onchange on iOS) ──
-var fileInput = document.getElementById('fileInput');
-function onFileSelected() {
-    dbg('onFileSelected fired. files=' + (fileInput.files ? fileInput.files.length : 'null'));
-    if (!fileInput.files || !fileInput.files.length) { dbg('No files — returning'); return; }
-    document.getElementById('uploadTitle').textContent = '⏳ Loading…';
-    document.getElementById('uploadSub').textContent = fileInput.files.length + ' photo(s) selected';
-    if (currentMode === 'binder' && fileInput.files.length > 1) {
-        dbg('Batch mode: ' + fileInput.files.length + ' files');
-        startBatch(Array.from(fileInput.files));
+// ── File inputs — overlay approach (most reliable on iOS Safari) ─────────
+var cameraInput  = document.getElementById('cameraInput');
+var libraryInput = document.getElementById('libraryInput');
+
+function onFilesSelected(inp) {
+    if (!inp || !inp.files || !inp.files.length) { dbg('No files'); return; }
+    dbg('onFilesSelected: ' + inp.id + ' files=' + inp.files.length);
+    document.getElementById('uploadTitle').textContent = '\u23F3 Loading\u2026';
+    document.getElementById('uploadSub').textContent = inp.files.length + ' photo(s) selected';
+    if (currentMode === 'binder' && inp.files.length > 1) {
+        startBatch(Array.from(inp.files));
     } else {
-        dbg('Single file: ' + fileInput.files[0].name + ' (' + fileInput.files[0].size + ' bytes)');
-        processFile(fileInput.files[0]);
+        processFile(inp.files[0]);
     }
+    inp.value = ''; // reset so same file can be re-selected
 }
-fileInput.addEventListener('change', onFileSelected);
-fileInput.addEventListener('input',  onFileSelected); // iOS Safari fallback
+['change','input'].forEach(function(ev){
+    cameraInput.addEventListener(ev,  function(){ onFilesSelected(cameraInput);  });
+    libraryInput.addEventListener(ev, function(){ onFilesSelected(libraryInput); });
+});
 
 // ── Drag & drop (desktop) ──────────────────────────────────────────────────
 var dz = document.getElementById('dropZone');
@@ -524,20 +538,7 @@ dz.addEventListener('drop',function(ev){
 
 function handleUpload(inp){ if(inp && inp.files && inp.files[0]) processFile(inp.files[0]); }
 
-function openFileInput(mode) {
-    dbg('openFileInput: mode=' + mode);
-    // Remove any previous attributes
-    fileInput.removeAttribute('capture');
-    fileInput.removeAttribute('multiple');
-    if (mode === 'camera') {
-        fileInput.setAttribute('capture', 'environment');
-    }
-    if (currentMode === 'binder' && mode === 'library') {
-        fileInput.multiple = true;
-    }
-    fileInput.click();
-    dbg('fileInput.click() called');
-}
+// openFileInput no longer needed — inputs are overlaid directly on buttons
 function copyLog() {
     var text = document.getElementById('debugLog').innerText;
     if (navigator.clipboard) {
