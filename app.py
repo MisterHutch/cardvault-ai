@@ -264,7 +264,7 @@ def scanner_page():
         </div>
     </div>
     <!-- File input lives outside any container — nothing to interfere with it -->
-    <input type="file" id="fileInput" accept="image/*" style="display:none">
+    <input type="file" id="fileInput" accept="image/*" style="opacity:0;position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;font-size:16px">
 
     <!-- Batch Progress Panel -->
     <div id="batchProgress" style="display:none;margin-top:16px">
