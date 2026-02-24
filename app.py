@@ -893,7 +893,14 @@ function getEstimate(){
         if(res.multipliers){for(var k in res.multipliers){if(k[0]!='_')mrows+='<tr><td>'+k+'</td><td class="mult-val">'+res.multipliers[k]+'x</td></tr>';}
         if(res.multipliers._cap_applied)mrows+='<tr><td style="color:var(--turbo-orange)">Cap applied (was '+res.multipliers._uncapped+'x)</td><td class="mult-val">'+res.multipliers._total+'x</td></tr>';}
         var src='';
-        if(res.sources){res.sources.forEach(function(s){src+='<div class="source-pill">'+s.source+' <span class="val">$'+s.value.toFixed(2)+'</span></div>'});}
+        if(res.sources&&res.sources.length){
+            src='<div style="font-family:Lilita One,cursive;font-size:15px;margin-bottom:10px">📦 Sold Comps</div>';
+            res.sources.forEach(function(s){
+                var img=s.image_url?'<img src="'+s.image_url+'" style="width:56px;height:72px;object-fit:cover;border-radius:6px;flex-shrink:0;border:1px solid rgba(255,255,255,.1)" onerror="this.style.display=\'none\'">':'<div style="width:56px;height:72px;border-radius:6px;background:rgba(255,255,255,.06);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px">🃏</div>';
+                var link=s.url?'<a href="'+s.url+'" target="_blank" style="color:var(--light-purple);font-size:11px;text-decoration:none">View on eBay \u2192</a>':'';
+                src+='<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;margin-bottom:8px">'+img+'<div style="flex:1;min-width:0"><div style="font-size:18px;font-weight:800;color:var(--slime-green)">$'+s.value.toFixed(2)+'</div><div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:2px">'+s.date+'</div><div style="margin-top:4px">'+link+'</div></div></div>';
+            });
+        }
         document.getElementById('estimateContent').innerHTML=
             '<div class="detail-header"><div><div style="font-family:Lilita One,cursive;font-size:28px">'+data.player+'</div>'+
             '<div style="color:var(--light-purple);font-size:13px;font-weight:600">'+data.year+' '+data.set_name+' #'+data.card_number+'</div>'+
@@ -1714,7 +1721,7 @@ def api_estimate():
         card = request_to_value_attrs(d)
         market_data = market_fetcher.fetch_all(card)
         est = estimator.estimate_value(card, market_data=market_data, use_mock=not market_data)
-        sources = [{"source": dp.source, "value": dp.value, "date": dp.date.isoformat()} for dp in est.data_points[:6]]
+        sources = [{"source": dp.source, "value": dp.value, "date": dp.date.strftime("%m/%d/%y"), "url": dp.url, "image_url": dp.image_url} for dp in est.data_points[:8]]
         return jsonify({
             "estimated_value": est.estimated_value,
             "confidence": est.confidence.value,

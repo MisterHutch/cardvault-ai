@@ -68,6 +68,7 @@ class MarketDataPoint:
     sample_size: int
     condition: CardCondition
     url: Optional[str] = None
+    image_url: Optional[str] = None
     notes: Optional[str] = None
 
 @dataclass

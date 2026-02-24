@@ -323,6 +323,7 @@ class EbayMarketFetcher:
                         sample_size=1,
                         condition=card.condition,
                         url=url,
+                        image_url=self._extract_image(item),
                         notes="eBay sold listing",
                     ))
             except (KeyError, ValueError, TypeError):
@@ -375,6 +376,23 @@ class EbayMarketFetcher:
         url_field = item.get("viewItemURL", [])
         if isinstance(url_field, list) and url_field:
             return url_field[0]
+        return None
+
+    def _extract_image(self, item: Dict) -> Optional[str]:
+        """Extract thumbnail image URL from either API format."""
+        # Browse API
+        thumb = item.get("thumbnailImages")
+        if isinstance(thumb, list) and thumb:
+            return thumb[0].get("imageUrl")
+        img = item.get("image")
+        if isinstance(img, dict):
+            return img.get("imageUrl")
+        # Finding API: galleryURL is a list ["https://..."]
+        gallery = item.get("galleryURL", [])
+        if isinstance(gallery, list) and gallery:
+            return gallery[0]
+        if isinstance(gallery, str):
+            return gallery
         return None
     
     def _cache_key(self, card: CardAttributes) -> str:
