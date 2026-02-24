@@ -372,7 +372,14 @@ class EbayMarketFetcher:
     
     def _extract_url(self, item: Dict) -> Optional[str]:
         """Extract item URL from either API format."""
-        return item.get("itemWebUrl") or item.get("viewItemURL", [None])
+        # Browse API: plain string
+        if "itemWebUrl" in item:
+            return item["itemWebUrl"]
+        # Finding API: list of strings ["https://..."]
+        url_field = item.get("viewItemURL", [])
+        if isinstance(url_field, list) and url_field:
+            return url_field[0]
+        return None
     
     def _cache_key(self, card: CardAttributes) -> str:
         return f"{card.player}|{card.year}|{card.set_name}|{card.parallel or ''}|{card.serial_number or ''}"

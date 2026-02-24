@@ -509,8 +509,19 @@ class CardValueEstimator:
         # 1. Weighted base value from market data
         base_value = self._weighted_value(market_data)
         
-        # 2. Apply multipliers (refactored — capped compound)
-        adjusted_value, mult_breakdown = MultiplierEngine.apply_all(base_value, card)
+        # 2. Apply multipliers ONLY for mock data.
+        # Real sold comps already reflect grade/RC/parallel — multiplying again
+        # causes massive inflation. Detect real data by checking for non-mock URLs.
+        has_real_data = any(
+            dp.url and "mock" not in str(dp.url)
+            for dp in market_data
+            if dp.source == "ebay_sold"
+        )
+        if has_real_data:
+            adjusted_value = round(base_value, 2)
+            mult_breakdown = {"note": "multipliers skipped — real sold comp data"}
+        else:
+            adjusted_value, mult_breakdown = MultiplierEngine.apply_all(base_value, card)
         
         # 3. Confidence (refactored — extracted calculator)
         confidence, score, factors = ConfidenceCalculator.calculate(card, market_data)
