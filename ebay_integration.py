@@ -194,14 +194,10 @@ class EbayMarketFetcher:
             # Build search query
             query = self._build_query(card)
             
-            # Browse API needs OAuth (client_secret). Finding API only needs App ID.
-            # If no secret, skip straight to Finding API.
-            results = []
-            if self.config.client_secret:
-                results = self._search_browse_api(query, limit)
-            
-            if not results:
-                results = self._search_finding_api(query, limit)
+            # SOLD COMPS ONLY — Finding API (findCompletedItems + SoldItemsOnly=true)
+            # Browse API is intentionally excluded: it returns active listings
+            # (asking prices), not actual sold transactions. Always use Finding API.
+            results = self._search_finding_api(query, limit)
             
             # Parse into MarketDataPoints
             data_points = self._parse_results(results, card)
