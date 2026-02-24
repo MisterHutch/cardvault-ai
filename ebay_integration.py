@@ -212,23 +212,48 @@ class EbayMarketFetcher:
             return []
     
     def _build_query(self, card: CardAttributes) -> str:
-        """Build eBay search query from card attributes."""
-        parts = [card.player, str(card.year), card.set_name]
-        
+        """
+        Build a tight eBay sold comp search query.
+        Goal: match the exact card variant, not a broad pool that inflates value.
+        """
+        parts = [card.player]
+
+        # Year + set — most sellers write "2020 Prizm" or "2017 Panini Prizm"
+        if card.year:
+            parts.append(str(card.year))
+        if card.set_name:
+            parts.append(card.set_name)
+
+        # Card number — sellers use both "#269" and "269" formats; use bare number
+        if card.card_number:
+            num = str(card.card_number).lstrip("#")
+            parts.append(f"#{num}")
+
+        # Grade first (most important filter — PSA 10 vs raw is 5-10x difference)
+        if card.graded and card.grade_value is not None:
+            grading_co = getattr(card, "grading_company", "PSA") or "PSA"
+            grade_str = str(card.grade_value)
+            # Format: 10.0 → "10", 9.5 → "9.5"
+            if grade_str.endswith(".0"):
+                grade_str = grade_str[:-2]
+            parts.append(f"{grading_co} {grade_str}")
+
+        # Parallel — be exact (Silver, Gold, Hyper, etc.)
         if card.parallel:
             parts.append(card.parallel)
-        if card.card_number:
-            parts.append(f"#{card.card_number}")
+
+        # Print run (serial numbered) — critical for value
+        if card.serial_number:
+            match = re.search(r'/(\d+)', card.serial_number)
+            if match:
+                parts.append(f"/{match.group(1)}")
+
+        # RC / Auto — short forms eBay sellers actually use
         if card.rookie:
             parts.append("RC")
         if card.autograph:
             parts.append("auto")
-        if card.serial_number:
-            # Add print run info
-            match = re.search(r'/(\d+)', card.serial_number)
-            if match:
-                parts.append(f"/{match.group(1)}")
-        
+
         return " ".join(parts)
     
     def _search_browse_api(self, query: str, limit: int) -> List[Dict]:
@@ -264,22 +289,29 @@ class EbayMarketFetcher:
             return []
     
     def _search_finding_api(self, query: str, limit: int) -> List[Dict]:
-        """Fallback: search using eBay Finding API (findCompletedItems)."""
+        """Search using eBay Finding API (findCompletedItems — sold only)."""
         try:
+            # 90-day window — recent comps only, avoids stale high/low outliers
+            from datetime import timezone
+            ninety_days_ago = (datetime.now(timezone.utc) - timedelta(days=90)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
             headers = {
                 "X-EBAY-SOA-SECURITY-APPNAME": self.config.client_id,
                 "X-EBAY-SOA-OPERATION-NAME": "findCompletedItems",
                 "X-EBAY-SOA-SERVICE-VERSION": "1.13.0",
                 "X-EBAY-SOA-RESPONSE-DATA-FORMAT": "JSON",
             }
-            
+
             params = {
                 "keywords": query,
-                "categoryId": "261328",
+                "categoryId": "261328",          # Sports Trading Cards
                 "itemFilter(0).name": "SoldItemsOnly",
                 "itemFilter(0).value": "true",
-                "sortOrder": "EndTimeSoonest",
-                "paginationInput.entriesPerPage": min(limit, 100),
+                "itemFilter(1).name": "EndTimeFrom",
+                "itemFilter(1).value": ninety_days_ago,
+                "outputSelector(0)": "GalleryInfo",  # Fetch card thumbnails
+                "sortOrder": "EndTimeSoonest",        # Most recent first
+                "paginationInput.entriesPerPage": min(limit, 50),
             }
             
             response = requests.get(
