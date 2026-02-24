@@ -47,6 +47,10 @@ class CardIdentification:
     
     # Raw data
     raw_response: str = ""
+
+    # Token usage (for cost tracking)
+    _input_tok: int = 0
+    _output_tok: int = 0
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -379,6 +383,8 @@ Now analyze the card image:"""
             data = self._parse_response(raw_text)
             
             return CardIdentification(
+                _input_tok=response.usage.input_tokens,
+                _output_tok=response.usage.output_tokens,
                 player_name=data.get("player_name", "Unknown"),
                 team=data.get("team", "Unknown"),
                 year=data.get("year", "Unknown"),

@@ -69,10 +69,14 @@ confidence = how confident you are in this assessment"""
             text = text.split("```")[1]
             if text.startswith("json"):
                 text = text[4:]
-        return json.loads(text)
+        result = json.loads(text)
+        result["_input_tok"]  = resp.usage.input_tokens
+        result["_output_tok"] = resp.usage.output_tokens
+        return result
     except Exception as e:
         # If prescreen fails, assume it's a card and let the main identifier try
-        return {"is_card": True, "usable": True, "reason": f"prescreen error: {e}", "confidence": 0.5}
+        return {"is_card": True, "usable": True, "reason": f"prescreen error: {e}", "confidence": 0.5,
+                "_input_tok": 0, "_output_tok": 0}
 
 
 def route_identify(confidence_score: float, attempt: int = 1) -> str:

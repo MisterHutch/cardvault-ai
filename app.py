@@ -32,7 +32,7 @@ from card_value_engine import (
     Sport, ConfidenceLevel, MockDataFactory
 )
 from ebay_integration import create_ebay_fetcher, MarketDataFetcher
-from model_router import prescreen_image, route_identify, MODEL_SMART, MODEL_FAST
+from model_router import prescreen_image, route_identify, MODEL_SMART, MODEL_FAST, estimate_cost
 
 # Detection & identification (lazy-loaded — graceful when deps missing)
 _detector = None
@@ -94,6 +94,46 @@ def get_db():
     return conn
 
 estimator = CardValueEstimator()
+
+# ── Cost tracking table (auto-migrate) ─────────────────────────────────────
+def _init_cost_table():
+    conn = get_db()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS api_costs (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts          TEXT    DEFAULT CURRENT_TIMESTAMP,
+            operation   TEXT,
+            model       TEXT,
+            input_tok   INTEGER DEFAULT 0,
+            output_tok  INTEGER DEFAULT 0,
+            cost_usd    REAL    DEFAULT 0,
+            card_count  INTEGER DEFAULT 1,
+            notes       TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+try:
+    _init_cost_table()
+except Exception as _e:
+    print("[CardVault] cost table init error:", _e)
+
+def log_cost(operation: str, model: str, input_tok: int, output_tok: int,
+             card_count: int = 1, notes: str = ""):
+    """Log an API call cost to the database."""
+    cost = estimate_cost(model, input_tok, output_tok)
+    try:
+        conn = get_db()
+        conn.execute(
+            "INSERT INTO api_costs (operation, model, input_tok, output_tok, cost_usd, card_count, notes) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (operation, model, input_tok, output_tok, cost, card_count, notes)
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print("[CardVault] cost log error:", e)
 
 # eBay integration
 _cid = os.environ.get("EBAY_CLIENT_ID", "")
@@ -1387,8 +1427,65 @@ def settings_page():
             DB_PATH=cardvault.db
         </div>
     </div>
+
+    <div class="panel" id="costPanel">
+        <div class="panel-title">💸 API Cost Tracker</div>
+        <div id="costLoading" style="color:var(--muted);font-size:14px;padding:12px 0">Loading cost data...</div>
+        <div id="costContent" style="display:none">
+            <div id="costKpis" style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px"></div>
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">By Model</div>
+            <div id="costByModel" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px"></div>
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px">Recent Calls</div>
+            <div id="costRecent" style="font-size:12px;font-family:monospace;background:var(--midnight);border-radius:10px;padding:12px;max-height:220px;overflow-y:auto"></div>
+        </div>
+    </div>
     """
-    return render("Settings", content, active="settings")
+
+    scripts = """<script>
+fetch('/api/costs').then(r=>r.json()).then(function(d){
+    document.getElementById('costLoading').style.display='none';
+    document.getElementById('costContent').style.display='block';
+    var s=d.summary;
+    var kpis=document.getElementById('costKpis');
+    kpis.innerHTML=[
+        ['Total Spend','$'+(s.total_usd||0).toFixed(4),'var(--slime-green)'],
+        ['API Calls',s.total_calls,'var(--electric-purple)'],
+        ['Input Tokens',(s.total_input_tok||0).toLocaleString(),'var(--light-purple)'],
+        ['Output Tokens',(s.total_output_tok||0).toLocaleString(),'var(--radical-yellow)']
+    ].map(function(k){
+        return '<div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center">'
+            +'<div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px">'+k[0]+'</div>'
+            +'<div style="font-size:1.4rem;font-weight:800;color:'+k[2]+'">'+k[1]+'</div></div>';
+    }).join('');
+
+    var byModel=document.getElementById('costByModel');
+    byModel.innerHTML=(d.by_model||[]).map(function(m){
+        var pct=s.total_usd>0?Math.round((m.cost_usd/s.total_usd)*100):0;
+        var color=m.model.includes('haiku')?'var(--slime-green)':m.model.includes('opus')?'var(--turbo-orange)':'var(--electric-purple)';
+        return '<div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;padding:10px 14px">'
+            +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+            +'<span style="font-size:13px;font-weight:600">'+m.model.split('-').slice(-2).join('-')+'</span>'
+            +'<span style="font-size:13px;font-weight:700;color:'+color+'">$'+m.cost_usd.toFixed(5)+' ('+m.calls+' calls)</span></div>'
+            +'<div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px">'
+            +'<div style="height:100%;width:'+pct+'%;background:'+color+';border-radius:2px"></div></div></div>';
+    }).join('') || '<span style="color:var(--muted);font-size:13px">No API calls logged yet.</span>';
+
+    var recent=document.getElementById('costRecent');
+    recent.innerHTML=(d.recent||[]).map(function(r){
+        var color=r.model.includes('haiku')?'#39FF6A':r.model.includes('opus')?'#FF6B35':'#7B2FFF';
+        return '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04)">'
+            +'<span style="color:'+color+'">'+r.operation+'</span>'
+            +'<span style="color:var(--muted)">'+r.model.split('-').pop()+'</span>'
+            +'<span style="color:var(--light-purple)">'+r.input_tok+'/'+r.output_tok+' tok</span>'
+            +'<span style="color:var(--slime-green)">$'+r.cost_usd.toFixed(6)+'</span></div>';
+    }).join('') || '<span style="color:var(--muted)">No recent calls.</span>';
+
+}).catch(function(e){
+    document.getElementById('costLoading').textContent='Could not load cost data.';
+});
+</script>"""
+
+    return render("Settings", content, scripts=scripts, active="settings")
 
 # ============================================================================
 # API ROUTES — Detection & Identification
@@ -1476,6 +1573,9 @@ def api_identify():
     try:
         # Tier 1: Haiku prescreen — is this a usable card image?
         screen = prescreen_image(identifier.client, str(filepath))
+        log_cost("prescreen", MODEL_FAST,
+                 screen.get("_input_tok", 0), screen.get("_output_tok", 0))
+
         if not screen.get("is_card", True):
             return jsonify({"error": "Image does not appear to be a sports card.", "prescreen": screen}), 200
         if not screen.get("usable", True):
@@ -1483,12 +1583,15 @@ def api_identify():
 
         # Tier 2: Sonnet full identification
         result = identifier.identify_card(str(filepath), model=MODEL_SMART)
+        log_cost("identify", MODEL_SMART, result._input_tok, result._output_tok)
 
         # Tier 3: If confidence is low, retry with best model
         if result.confidence < 0.55:
             better_model = route_identify(result.confidence, attempt=2)
             if better_model != MODEL_SMART:
                 result = identifier.identify_card(str(filepath), model=better_model)
+                log_cost("identify_escalated", better_model, result._input_tok, result._output_tok,
+                         notes=f"escalated from confidence={result.confidence:.2f}")
                 result.identification_notes = (result.identification_notes or "") + " [escalated]"
 
         return jsonify(result.to_dict())
@@ -1517,6 +1620,8 @@ def api_identify_batch():
         try:
             # Haiku prescreen — skip empty slots / non-cards fast
             screen = prescreen_image(identifier.client, str(filepath))
+            log_cost("prescreen_batch", MODEL_FAST,
+                     screen.get("_input_tok", 0), screen.get("_output_tok", 0))
             if not screen.get("is_card", True) or not screen.get("usable", True):
                 results.append({
                     "player_name": "Empty Slot", "confidence": 0,
@@ -1527,12 +1632,14 @@ def api_identify_batch():
 
             # Sonnet full ID
             ident = identifier.identify_card(str(filepath), model=MODEL_SMART)
+            log_cost("identify_batch", MODEL_SMART, ident._input_tok, ident._output_tok)
 
             # Escalate if low confidence
             if ident.confidence < 0.55:
                 better = route_identify(ident.confidence, attempt=2)
                 if better != MODEL_SMART:
                     ident = identifier.identify_card(str(filepath), model=better)
+                    log_cost("identify_escalated", better, ident._input_tok, ident._output_tok)
 
             result = ident.to_dict()
             result["filename"] = card_info["filename"]
@@ -1733,6 +1840,44 @@ def api_search():
         offset=int(request.args.get("offset", 0)),
     )])
 
+
+@app.route("/api/costs")
+def api_costs():
+    """Return API cost summary and recent call log."""
+    conn = get_db()
+    summary = conn.execute("""
+        SELECT
+            COALESCE(SUM(cost_usd), 0)   AS total_usd,
+            COALESCE(SUM(input_tok), 0)  AS total_input_tok,
+            COALESCE(SUM(output_tok), 0) AS total_output_tok,
+            COUNT(*)                      AS total_calls
+        FROM api_costs
+    """).fetchone()
+    by_model = conn.execute("""
+        SELECT model,
+               COUNT(*)            AS calls,
+               SUM(cost_usd)       AS cost_usd,
+               SUM(input_tok)      AS input_tok,
+               SUM(output_tok)     AS output_tok
+        FROM api_costs GROUP BY model ORDER BY cost_usd DESC
+    """).fetchall()
+    by_day = conn.execute("""
+        SELECT substr(ts,1,10) AS day,
+               COUNT(*)        AS calls,
+               SUM(cost_usd)   AS cost_usd
+        FROM api_costs GROUP BY day ORDER BY day DESC LIMIT 30
+    """).fetchall()
+    recent = conn.execute("""
+        SELECT ts, operation, model, input_tok, output_tok, cost_usd, notes
+        FROM api_costs ORDER BY id DESC LIMIT 50
+    """).fetchall()
+    conn.close()
+    return jsonify({
+        "summary": dict(summary),
+        "by_model": [dict(r) for r in by_model],
+        "by_day":   [dict(r) for r in by_day],
+        "recent":   [dict(r) for r in recent],
+    })
 
 @app.route("/api/export")
 def api_export():
