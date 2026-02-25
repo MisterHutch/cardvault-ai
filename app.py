@@ -315,14 +315,15 @@ def scanner_page():
                 🖼️ Library
             </button>
         </div>
-        <!-- Off-screen file inputs — NOT display:none (kills events on iOS) -->
-        <input type="file" id="cameraInput" accept="image/*" capture="environment"
-               style="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;font-size:16px"
-               onchange="onFilesSelected(this)">
-        <input type="file" id="libraryInput" accept="image/*"
-               style="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;font-size:16px"
-               onchange="onFilesSelected(this)">
     </div>
+
+    <!-- File inputs live OUTSIDE dropZone so they are never hidden by dz.style.display='none' -->
+    <input type="file" id="cameraInput" accept="image/*" capture="environment"
+           style="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;font-size:16px"
+           onchange="onFilesSelected(this)">
+    <input type="file" id="libraryInput" accept="image/*"
+           style="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;font-size:16px"
+           onchange="onFilesSelected(this)">
 
     <!-- Batch Progress Panel -->
     <div id="batchProgress" style="display:none;margin-top:16px">
@@ -510,14 +511,22 @@ var libraryInput = document.getElementById('libraryInput');
 function onFilesSelected(inp) {
     if (!inp || !inp.files || !inp.files.length) { dbg('No files'); return; }
     dbg('onFilesSelected: ' + inp.id + ' files=' + inp.files.length);
+    // Snapshot files before clone-swap (inp.files will be gone after swap)
+    var files = Array.from(inp.files);
     document.getElementById('uploadTitle').textContent = '\u23F3 Loading\u2026';
-    document.getElementById('uploadSub').textContent = inp.files.length + ' photo(s) selected';
-    if (currentMode === 'binder' && inp.files.length > 1) {
-        startBatch(Array.from(inp.files));
+    document.getElementById('uploadSub').textContent = files.length + ' photo(s) selected';
+    // Clone-swap: replace input with fresh copy so iOS never gets stuck
+    var fresh = inp.cloneNode(false);
+    inp.parentNode.replaceChild(fresh, inp);
+    if (inp.id === 'cameraInput') cameraInput = fresh;
+    else if (inp.id === 'libraryInput') libraryInput = fresh;
+    // Also update multiple flag on fresh libraryInput
+    if (inp.id === 'libraryInput') fresh.multiple = (currentMode === 'binder');
+    if (currentMode === 'binder' && files.length > 1) {
+        startBatch(files);
     } else {
-        processFile(inp.files[0]);
+        processFile(files[0]);
     }
-    inp.value = ''; // reset so same file can be re-selected
 }
 // onchange handled inline on the input elements (most reliable on iOS Chrome/Safari)
 
@@ -598,8 +607,7 @@ function resetScanner() {
     currentFile = null; detectedCards = []; identifiedCards = [];
     batchFiles = []; batchResults = []; batchCurrent = 0;
     dz.style.display = 'block';
-    if(cameraInput) cameraInput.value = '';
-    if(libraryInput) libraryInput.value = '';
+    // inputs are clone-swapped on use — no value reset needed
     document.getElementById('binderResults').style.display = 'none';
     document.getElementById('singleResults').style.display = 'none';
     document.getElementById('cardGrid').style.display = 'none';
