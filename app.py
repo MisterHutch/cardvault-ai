@@ -307,18 +307,21 @@ def scanner_page():
         <div class="upload-title" id="uploadTitle">Scan Binder Page</div>
         <div class="upload-sub" id="uploadSub">Choose how to add your photo</div>
         <div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap">
-            <!-- Overlay inputs inside each button — most reliable on iOS Safari -->
-            <label class="btn btn-primary" id="btnCamera" style="position:relative;overflow:hidden;cursor:pointer">
+            <!-- Real buttons + off-screen inputs: most reliable on iOS Chrome/Safari -->
+            <button class="btn btn-primary" id="btnCamera" onclick="document.getElementById('cameraInput').click()">
                 📷 Take Photo
-                <input type="file" id="cameraInput" accept="image/*" capture="environment"
-                       style="position:absolute;top:0;left:0;opacity:0;width:100%;height:100%;font-size:16px;cursor:pointer">
-            </label>
-            <label class="btn btn-ghost" id="btnLibrary" style="position:relative;overflow:hidden;cursor:pointer">
+            </button>
+            <button class="btn btn-ghost" id="btnLibrary" onclick="document.getElementById('libraryInput').click()">
                 🖼️ Library
-                <input type="file" id="libraryInput" accept="image/*"
-                       style="position:absolute;top:0;left:0;opacity:0;width:100%;height:100%;font-size:16px;cursor:pointer">
-            </label>
+            </button>
         </div>
+        <!-- Off-screen file inputs — NOT display:none (kills events on iOS) -->
+        <input type="file" id="cameraInput" accept="image/*" capture="environment"
+               style="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;font-size:16px"
+               onchange="onFilesSelected(this)">
+        <input type="file" id="libraryInput" accept="image/*"
+               style="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;font-size:16px"
+               onchange="onFilesSelected(this)">
     </div>
 
     <!-- Batch Progress Panel -->
@@ -516,10 +519,7 @@ function onFilesSelected(inp) {
     }
     inp.value = ''; // reset so same file can be re-selected
 }
-['change','input'].forEach(function(ev){
-    cameraInput.addEventListener(ev,  function(){ onFilesSelected(cameraInput);  });
-    libraryInput.addEventListener(ev, function(){ onFilesSelected(libraryInput); });
-});
+// onchange handled inline on the input elements (most reliable on iOS Chrome/Safari)
 
 // ── Drag & drop (desktop) ──────────────────────────────────────────────────
 var dz = document.getElementById('dropZone');
@@ -1960,13 +1960,7 @@ def ebay_account_deletion():
         return jsonify({"challengeResponse": challenge_response}), 200
 
     # POST — account deletion notification
-    try:
-        payload = request.get_json(silent=True) or {}
-        user_id = payload.get("data", {}).get("userId", "unknown")
-        print(f"[eBay] Account deletion notification received for userId={user_id}")
-    except Exception as e:
-        print(f"[eBay] Account deletion parse error: {e}")
-
+    # eBay compliance: acknowledge and move on. No user data stored in CardVault.
     return "", 200
 
 
