@@ -307,23 +307,21 @@ def scanner_page():
         <div class="upload-title" id="uploadTitle">Scan Binder Page</div>
         <div class="upload-sub" id="uploadSub">Choose how to add your photo</div>
         <div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap">
-            <!-- Real buttons + off-screen inputs: most reliable on iOS Chrome/Safari -->
-            <button class="btn btn-primary" id="btnCamera" onclick="document.getElementById('cameraInput').click()">
+            <!-- Label overlay approach: no JS .click() needed, works on all browsers + iOS -->
+            <label class="btn btn-primary" id="btnCamera" style="position:relative;overflow:hidden;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
                 📷 Take Photo
-            </button>
-            <button class="btn btn-ghost" id="btnLibrary" onclick="document.getElementById('libraryInput').click()">
+                <input type="file" id="cameraInput" accept="image/*" capture="environment"
+                       style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px"
+                       onchange="onFilesSelected(this)">
+            </label>
+            <label class="btn btn-ghost" id="btnLibrary" style="position:relative;overflow:hidden;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
                 🖼️ Library
-            </button>
+                <input type="file" id="libraryInput" accept="image/*"
+                       style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px"
+                       onchange="onFilesSelected(this)">
+            </label>
         </div>
     </div>
-
-    <!-- File inputs live OUTSIDE dropZone so they are never hidden by dz.style.display='none' -->
-    <input type="file" id="cameraInput" accept="image/*" capture="environment"
-           style="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;font-size:16px"
-           onchange="onFilesSelected(this)">
-    <input type="file" id="libraryInput" accept="image/*"
-           style="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;font-size:16px"
-           onchange="onFilesSelected(this)">
 
     <!-- Batch Progress Panel -->
     <div id="batchProgress" style="display:none;margin-top:16px">
@@ -518,6 +516,8 @@ function onFilesSelected(inp) {
     // Clone-swap: replace input with fresh copy so iOS never gets stuck
     var fresh = inp.cloneNode(false);
     inp.parentNode.replaceChild(fresh, inp);
+    // Re-attach change listener — cloneNode copies attributes but not active listeners
+    fresh.addEventListener('change', function() { onFilesSelected(fresh); });
     if (inp.id === 'cameraInput') cameraInput = fresh;
     else if (inp.id === 'libraryInput') libraryInput = fresh;
     // Also update multiple flag on fresh libraryInput
