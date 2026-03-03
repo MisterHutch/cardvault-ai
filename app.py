@@ -300,10 +300,7 @@ def scanner_page():
         <button class="mode-pill active" id="modeBinder" onclick="setMode('binder')">📖 Binder Page (9 cards)</button>
         <button class="mode-pill" id="modeSingle" onclick="setMode('single')">🃏 Single Card</button>
     </div>
-    <!-- Server status banner — hides after 3s when ready -->
-    <div id="serverBanner" style="margin:10px 0 4px;padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;text-align:center;border:1px solid rgba(123,47,255,0.3);background:rgba(123,47,255,0.08);color:var(--light-purple);transition:all .4s;">
-        🔌 Checking server…
-    </div>
+    <!-- server banner removed -->
 
     <!-- Upload Zone — label[for] approach, inputs NOT nested (iOS Safari safe) -->
     <div class="upload-zone" id="dropZone">
@@ -972,43 +969,13 @@ function saveCard(){
 }
 
 // Init
-dbg('Scanner JS loaded. Setting binder mode...');
+dbg('▶ JS loaded OK');
 setMode('binder');
-dbg('Ready. cameraInput=' + (cameraInput ? 'found' : 'MISSING') + ' libraryInput=' + (libraryInput ? 'found' : 'MISSING'));
+dbg('✅ cameraInput=' + (cameraInput ? 'OK' : '❌ MISSING') + '  libraryInput=' + (libraryInput ? 'OK' : '❌ MISSING'));
+dbg('👆 Tap Library or Take Photo to start');
 
-// ── Server health ping — runs inline, no event wrapper needed (script is at bottom of body) ──
-(function pingServer() {
-    var banner = document.getElementById('serverBanner');
-    var t0 = Date.now();
-    // Auto-dismiss "Checking" after 8s if fetch hangs (don't block the user)
-    var timeout = setTimeout(function() {
-        if (banner && banner.textContent.indexOf('Checking') > -1) {
-            banner.style.display = 'none';
-            dbg('Health ping timeout — banner hidden, server may still be warming up');
-        }
-    }, 8000);
-    fetch('/health', {signal: AbortSignal.timeout ? AbortSignal.timeout(7000) : undefined})
-        .then(function(r) { return r.json(); })
-        .then(function(d) {
-            clearTimeout(timeout);
-            var ms = Date.now() - t0;
-            dbg('Server OK ' + ms + 'ms | detector=' + d.detector + ' identifier=' + d.identifier);
-            if (banner) {
-                banner.textContent = '✅ Server ready (' + ms + 'ms)';
-                banner.style.background = 'rgba(40,200,64,0.12)';
-                banner.style.color = '#28C840';
-                banner.style.borderColor = 'rgba(40,200,64,0.3)';
-                setTimeout(function() { banner.style.display = 'none'; }, 3000);
-            }
-        })
-        .catch(function(err) {
-            clearTimeout(timeout);
-            dbg('Health ping failed: ' + err);
-            if (banner) { banner.style.display = 'none'; }
-        });
-    // Keep-alive every 4 min
-    setInterval(function() { fetch('/health').catch(function() {}); }, 240000);
-})();
+// Silent keep-alive — pings /health every 4 min so Railway free tier stays warm
+setInterval(function() { fetch('/health').catch(function() {}); }, 240000);
 </script>"""
 
     return render("Scanner", content, scripts, "scan")
