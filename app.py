@@ -300,6 +300,10 @@ def scanner_page():
         <button class="mode-pill active" id="modeBinder" onclick="setMode('binder')">📖 Binder Page (9 cards)</button>
         <button class="mode-pill" id="modeSingle" onclick="setMode('single')">🃏 Single Card</button>
     </div>
+    <!-- Server status banner — hides after 3s when ready -->
+    <div id="serverBanner" style="margin:10px 0 4px;padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;text-align:center;border:1px solid rgba(123,47,255,0.3);background:rgba(123,47,255,0.08);color:var(--light-purple);transition:all .4s;">
+        🔌 Checking server…
+    </div>
 
     <!-- Upload Zone — label[for] approach, inputs NOT nested (iOS Safari safe) -->
     <div class="upload-zone" id="dropZone">
@@ -479,8 +483,34 @@ def scanner_page():
 
     scripts = """<script>
 var currentMode = 'binder';
-// Startup ping — if this shows in debug, JS is running fine
-window.addEventListener('DOMContentLoaded', function() { dbg('Page ready. JS OK. UA=' + navigator.userAgent.substr(0,60)); });
+// ── Server wake-up + keep-alive ──────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', function() {
+    dbg('Page ready. JS OK. UA=' + navigator.userAgent.substr(0,60));
+    // Ping server health on load — warms up models, shows status
+    var banner = document.getElementById('serverBanner');
+    var t0 = Date.now();
+    fetch('/health').then(function(r){ return r.json(); }).then(function(d) {
+        var ms = Date.now() - t0;
+        dbg('Server OK in ' + ms + 'ms | detector=' + d.detector + ' identifier=' + d.identifier + ' ebay=' + d.ebay);
+        if (banner) {
+            banner.textContent = '✅ Server ready (' + ms + 'ms)';
+            banner.style.background = 'rgba(40,200,64,0.12)';
+            banner.style.color = '#28C840';
+            banner.style.borderColor = 'rgba(40,200,64,0.3)';
+            setTimeout(function(){ banner.style.display='none'; }, 3000);
+        }
+    }).catch(function(err) {
+        dbg('Server ping failed: ' + err);
+        if (banner) {
+            banner.textContent = '⚠️ Server warming up… try again in 15s';
+            banner.style.background = 'rgba(255,165,0,0.12)';
+            banner.style.color = '#FFA500';
+            banner.style.borderColor = 'rgba(255,165,0,0.3)';
+        }
+    });
+    // Keep-alive ping every 4 min — prevents Railway free tier sleep during session
+    setInterval(function(){ fetch('/health').catch(function(){}); }, 240000);
+});
 var currentFile = null;
 var detectedCards = [];
 var identifiedCards = [];
