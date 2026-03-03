@@ -301,27 +301,28 @@ def scanner_page():
         <button class="mode-pill" id="modeSingle" onclick="setMode('single')">🃏 Single Card</button>
     </div>
 
-    <!-- Upload Zone with explicit buttons — most reliable on iOS Safari -->
+    <!-- Upload Zone — label[for] approach, inputs NOT nested (iOS Safari safe) -->
     <div class="upload-zone" id="dropZone">
         <div class="upload-icon" id="uploadIcon">📖</div>
         <div class="upload-title" id="uploadTitle">Scan Binder Page</div>
         <div class="upload-sub" id="uploadSub">Choose how to add your photo</div>
         <div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap">
-            <!-- Label overlay approach: no JS .click() needed, works on all browsers + iOS -->
-            <label class="btn btn-primary" id="btnCamera" style="position:relative;overflow:hidden;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+            <!-- label[for] — most iOS-reliable: no nesting, no overflow:hidden trap -->
+            <label for="cameraInput" class="btn btn-primary" id="btnCamera"
+                   style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;-webkit-user-select:none">
                 📷 Take Photo
-                <input type="file" id="cameraInput" accept="image/*" capture="environment"
-                       style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px"
-                       onchange="onFilesSelected(this)">
             </label>
-            <label class="btn btn-ghost" id="btnLibrary" style="position:relative;overflow:hidden;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+            <label for="libraryInput" class="btn btn-ghost" id="btnLibrary"
+                   style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;-webkit-user-select:none">
                 🖼️ Library
-                <input type="file" id="libraryInput" accept="image/*"
-                       style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px"
-                       onchange="onFilesSelected(this)">
             </label>
         </div>
     </div>
+    <!-- File inputs outside any container — NOT nested in labels, NOT display:none -->
+    <input type="file" id="cameraInput" accept="image/*" capture="environment"
+           style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0,0,0,0);">
+    <input type="file" id="libraryInput" accept="image/*"
+           style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0,0,0,0);">
 
     <!-- Batch Progress Panel -->
     <div id="batchProgress" style="display:none;margin-top:16px">
@@ -478,6 +479,8 @@ def scanner_page():
 
     scripts = """<script>
 var currentMode = 'binder';
+// Startup ping — if this shows in debug, JS is running fine
+window.addEventListener('DOMContentLoaded', function() { dbg('Page ready. JS OK. UA=' + navigator.userAgent.substr(0,60)); });
 var currentFile = null;
 var detectedCards = [];
 var identifiedCards = [];
@@ -496,39 +499,54 @@ function setMode(mode) {
     document.getElementById('uploadSub').textContent = isBinder ? 'Take a photo or pick from library' : 'Take a photo or pick from library';
     document.getElementById('binderInfo').style.display = isBinder ? 'block' : 'none';
     // Allow multi-file in library when binder mode is active
-    if (document.getElementById('libraryInput')) {
-        document.getElementById('libraryInput').multiple = isBinder;
-    }
+    var li = document.getElementById('libraryInput');
+    if (li) li.multiple = isBinder;
     resetScanner();
 }
 
-// ── File inputs — overlay approach (most reliable on iOS Safari) ─────────
+// ── File inputs — label[for] approach, addEventListener (iOS Safari safe) ──
 var cameraInput  = document.getElementById('cameraInput');
 var libraryInput = document.getElementById('libraryInput');
 
+// Catch any JS errors into the debug log
+window.onerror = function(msg, src, line) {
+    dbg('JS ERROR: ' + msg + ' (' + src + ':' + line + ')');
+    return false;
+};
+
 function onFilesSelected(inp) {
-    if (!inp || !inp.files || !inp.files.length) { dbg('No files'); return; }
-    dbg('onFilesSelected: ' + inp.id + ' files=' + inp.files.length);
-    // Snapshot files before clone-swap (inp.files will be gone after swap)
+    dbg('onFilesSelected called: id=' + (inp ? inp.id : 'null') +
+        ' files=' + (inp && inp.files ? inp.files.length : '?'));
+    if (!inp || !inp.files || !inp.files.length) { dbg('No files in input'); return; }
     var files = Array.from(inp.files);
+    dbg('Files snapshotted: ' + files.length);
     document.getElementById('uploadTitle').textContent = '\u23F3 Loading\u2026';
     document.getElementById('uploadSub').textContent = files.length + ' photo(s) selected';
-    // Clone-swap: replace input with fresh copy so iOS never gets stuck
-    var fresh = inp.cloneNode(false);
-    inp.parentNode.replaceChild(fresh, inp);
-    // Re-attach change listener — cloneNode copies attributes but not active listeners
-    fresh.addEventListener('change', function() { onFilesSelected(fresh); });
-    if (inp.id === 'cameraInput') cameraInput = fresh;
-    else if (inp.id === 'libraryInput') libraryInput = fresh;
-    // Also update multiple flag on fresh libraryInput
-    if (inp.id === 'libraryInput') fresh.multiple = (currentMode === 'binder');
+    // Reset value so the same photo can be reselected next time
+    try { inp.value = ''; } catch(e) {}
     if (currentMode === 'binder' && files.length > 1) {
         startBatch(files);
     } else {
         processFile(files[0]);
     }
 }
-// onchange handled inline on the input elements (most reliable on iOS Chrome/Safari)
+
+function attachInputListeners(inp) {
+    if (!inp) return;
+    // Both 'change' and 'input' — belt + suspenders for iOS
+    inp.addEventListener('change', function(e) {
+        dbg('change event fired on ' + inp.id);
+        onFilesSelected(inp);
+    });
+    inp.addEventListener('input', function(e) {
+        dbg('input event fired on ' + inp.id);
+        onFilesSelected(inp);
+    });
+}
+
+attachInputListeners(cameraInput);
+attachInputListeners(libraryInput);
+dbg('File input listeners attached. cameraInput=' + !!cameraInput + ' libraryInput=' + !!libraryInput);
 
 // ── Drag & drop (desktop) ──────────────────────────────────────────────────
 var dz = document.getElementById('dropZone');
