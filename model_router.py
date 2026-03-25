@@ -6,17 +6,35 @@ Tiers:
   FAST   → claude-haiku-3-5        (cheap, quick, ~20x cheaper than Sonnet)
   SMART  → claude-sonnet-4-20250514 (default — vision + complex reasoning)
   BEST   → claude-opus-4-5         (edge cases, disputed cards, last resort)
+
+Shared routing logic lives in: /root/.openclaw/workspace/skills/model-cascade/router.py
+This file uses those constants + adds CardVault-specific vision functions.
 """
 
 import anthropic
 import base64
 import json
 from pathlib import Path
-
-# Model constants
-MODEL_FAST  = "claude-haiku-3-5-20241022"
-MODEL_SMART = "claude-sonnet-4-20250514"
-MODEL_BEST  = "claude-opus-4-5"
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent / 'skills'))
+try:
+    sys.path.insert(0, str(Path(__file__).parent.parent / 'skills' / 'model-cascade'))
+    from router import ModelCascade, Task, HAIKU, SONNET, OPUS, MODEL_COSTS
+    _cascade = ModelCascade()
+    MODEL_FAST  = HAIKU
+    MODEL_SMART = SONNET
+    MODEL_BEST  = OPUS
+except ImportError:
+    # Fallback to hardcoded if skill not available
+    MODEL_FAST  = "claude-haiku-3-5-20241022"
+    MODEL_SMART = "claude-sonnet-4-20250514"
+    MODEL_BEST  = "claude-opus-4-5"
+    MODEL_COSTS = {
+        MODEL_FAST:  {"input": 0.80,  "output": 4.00},
+        MODEL_SMART: {"input": 3.00,  "output": 15.00},
+        MODEL_BEST:  {"input": 15.00, "output": 75.00},
+    }
+    _cascade = None
 
 # Confidence threshold below which we escalate to a better model
 ESCALATE_THRESHOLD = 0.55
@@ -84,9 +102,12 @@ def route_identify(confidence_score: float, attempt: int = 1) -> str:
     Given confidence from a previous ID attempt, return the model to use next.
     attempt=1 → first try
     attempt=2 → retry (escalate if confidence was low)
+    Uses shared ModelCascade escalation when available.
     """
     if attempt == 1:
         return MODEL_SMART
+    if _cascade:
+        return _cascade.escalate(MODEL_SMART, confidence_score)
     if confidence_score < ESCALATE_THRESHOLD:
         return MODEL_BEST
     return MODEL_SMART
